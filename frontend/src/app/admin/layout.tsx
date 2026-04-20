@@ -194,8 +194,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             </button>
 
                             {notificationOpen && (
-                                <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-auto bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700">
-                                    <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setNotificationOpen(false)} />
+                                    <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-auto bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50">
+                                        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
                                         <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
                                     </div>
                                     <div className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -207,7 +209,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                                     key={notification.id}
                                                     onClick={() => {
                                                         markAsRead(notification.id);
-                                                        if (notification.link) router.push(notification.link);
+                                                        if (notification.link) {
+                                                            // Sanitize old notification links that had trailing IDs by removing the ID part
+                                                            let linkStr = notification.link;
+                                                            if (linkStr.match(/\/(requests|tickets|support)\/[a-zA-Z0-9_-]+$/)) {
+                                                                linkStr = linkStr.replace(/\/[a-zA-Z0-9_-]+$/, '');
+                                                            }
+                                                            const redirectLink = linkStr.startsWith('/') ? linkStr : `/${linkStr}`;
+                                                            router.push(redirectLink);
+                                                        }
                                                         setNotificationOpen(false);
                                                     }}
                                                     className={clsx(
@@ -226,6 +236,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         )}
                                     </div>
                                 </div>
+                                </>
                             )}
                         </div>
                     </div>

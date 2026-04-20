@@ -65,7 +65,7 @@ export default function ProfilePage() {
                                 type="text"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="input pl-10"
+                                className="input !pl-10"
                                 required
                             />
                         </div>
@@ -80,7 +80,7 @@ export default function ProfilePage() {
                             <input
                                 type="email"
                                 value={user?.email || ''}
-                                className="input pl-10 bg-slate-100 dark:bg-slate-700 cursor-not-allowed"
+                                className="input !pl-10 bg-slate-100 dark:bg-slate-700 cursor-not-allowed"
                                 disabled
                             />
                         </div>
@@ -97,7 +97,7 @@ export default function ProfilePage() {
                                 type="text"
                                 value={formData.department}
                                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                                className="input pl-10"
+                                className="input !pl-10"
                                 placeholder="e.g. Engineering"
                             />
                         </div>
@@ -113,7 +113,7 @@ export default function ProfilePage() {
                                 type="tel"
                                 value={formData.phone}
                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                className="input pl-10"
+                                className="input !pl-10"
                                 placeholder="+1 (555) 000-0000"
                             />
                         </div>

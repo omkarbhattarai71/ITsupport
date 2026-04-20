@@ -42,7 +42,7 @@ export default function HomePage() {
                                 </Link>
                             ) : (
                                 <>
-                                    <Link href="/login" className="btn btn-ghost">
+                                    <Link href="/login" className="btn btn-secondary">
                                         Sign In
                                     </Link>
                                     <Link href="/register" className="btn btn-primary">
@@ -69,7 +69,7 @@ export default function HomePage() {
                     <div className="text-center animate-fade-in">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-sm text-white/80 mb-8">
                             <Zap className="w-4 h-4 text-yellow-400" />
-                            Streamlined IT Support for Your Team
+                            Streamlined IT Support for you
                         </div>
 
                         <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">

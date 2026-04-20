@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../index';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { sendPasswordEmail } from '../utils/email';
+import crypto from 'crypto';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fcn-it-support-secret-key';
@@ -11,7 +13,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fcn-it-support-secret-key';
 // Validation schemas
 const registerSchema = z.object({
     email: z.string().email(),
-    password: z.string().min(6),
     name: z.string().min(2),
     department: z.string().optional(),
     phone: z.string().optional(),
@@ -27,6 +28,12 @@ router.post('/register', async (req, res) => {
     try {
         const data = registerSchema.parse(req.body);
 
+        const allowedDomains = ['fcn.dk', 'fcmasar.com', 'righttodream.com'];
+        const domain = data.email.split('@')[1].toLowerCase();
+        if (!allowedDomains.includes(domain)) {
+            return res.status(400).json({ error: `Invalid email domain. Allowed domains are: ${allowedDomains.join(', ')}` });
+        }
+
         // Check if user exists
         const existingUser = await prisma.user.findUnique({
             where: { email: data.email },
@@ -36,8 +43,18 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Email already registered' });
         }
 
+        // Generate secure random password
+        const generatedPassword = crypto.randomBytes(6).toString('hex');
+
+        // Send welcome email with password
+        const emailSent = await sendPasswordEmail(data.email, generatedPassword);
+        
+        if (!emailSent) {
+            return res.status(500).json({ error: 'Failed to send credentials email. Please contact support or check server SMTP settings.' });
+        }
+
         // Hash password
-        const hashedPassword = await bcrypt.hash(data.password, 10);
+        const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
         // Create user
         const user = await prisma.user.create({
@@ -62,7 +79,7 @@ router.post('/register', async (req, res) => {
                 action: 'CREATE',
                 entityType: 'USER',
                 entityId: user.id,
-                details: 'User registered',
+                details: 'User registered via email OTP flow',
             },
         });
 

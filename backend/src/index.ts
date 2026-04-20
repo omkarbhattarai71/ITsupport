@@ -32,6 +32,15 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Base endpoints
+app.get('/', (req, res) => {
+    res.json({ message: 'FCN IT Support Backend is running.' });
+});
+
+app.get('/api', (req, res) => {
+    res.json({ message: 'FCN IT Support API is running. Access specific endpoints like /api/health' });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -45,6 +54,7 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
 // Start server
 app.listen(PORT, () => {
+    console.log(`🔄 Reload triggered...`);
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📋 API endpoints available at http://localhost:${PORT}/api`);
 });

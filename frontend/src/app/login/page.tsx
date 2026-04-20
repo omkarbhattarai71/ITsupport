@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Monitor, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const registered = searchParams.get('registered');
     const { login, user, isAdmin } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -52,8 +54,14 @@ export default function LoginPage() {
                         Welcome back
                     </h1>
                     <p className="text-slate-600 dark:text-slate-400 mb-8">
-                        Sign in to your account to continue
+                        Sign in using your email and the auto-generated password sent to your inbox.
                     </p>
+
+                    {registered && (
+                        <div className="mb-6 p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 font-medium">
+                            Registration successful! Please check your email for your auto-generated password to log in.
+                        </div>
+                    )}
 
                     {error && (
                         <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400">
@@ -72,7 +80,7 @@ export default function LoginPage() {
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="input pl-10"
+                                    className="input !pl-10"
                                     placeholder="you@company.com"
                                     required
                                 />
@@ -89,7 +97,7 @@ export default function LoginPage() {
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="input pl-10 pr-10"
+                                    className="input !pl-10 !pr-10"
                                     placeholder="••••••••"
                                     required
                                 />

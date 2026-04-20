@@ -48,7 +48,19 @@ class ApiClient {
 
         const response = await fetch(`${API_URL}${endpoint}`, config);
 
-        const data = await response.json();
+        // Safely parse — backend might return HTML on crash instead of JSON
+        const contentType = response.headers.get('content-type') || '';
+        let data: any;
+        if (contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            // If not JSON, create a readable error from the status
+            if (!response.ok) {
+                throw new Error(`Server error (${response.status}): ${response.statusText || 'Unexpected response from server'}`);
+            }
+            data = { message: text };
+        }
 
         if (!response.ok) {
             throw new Error(data.error || 'API request failed');
@@ -57,8 +69,9 @@ class ApiClient {
         return data;
     }
 
+
     // Auth
-    async register(data: { email: string; password: string; name: string; department?: string }) {
+    async register(data: { email: string; password?: string; name: string; department?: string }) {
         return this.request<{ user: any; token: string }>('/api/auth/register', {
             method: 'POST',
             body: data,
@@ -207,6 +220,12 @@ class ApiClient {
 
     async getAdminUsers() {
         return this.request<{ users: any[] }>('/api/admin/users');
+    }
+
+    async deleteUser(id: string) {
+        return this.request<{ message: string }>(`/api/admin/users/${id}`, {
+            method: 'DELETE',
+        });
     }
 
     async sendNotification(data: { userId: string; title: string; message: string; type?: string }) {

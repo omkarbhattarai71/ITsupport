@@ -12,11 +12,8 @@ export default function RegisterPage() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        password: '',
-        confirmPassword: '',
         department: '',
     });
-    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -33,27 +30,15 @@ export default function RegisterPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-
-        if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        if (formData.password.length < 6) {
-            setError('Password must be at least 6 characters');
-            return;
-        }
-
         setLoading(true);
 
         try {
             await register({
                 name: formData.name,
                 email: formData.email,
-                password: formData.password,
                 department: formData.department || undefined,
             });
-            router.push('/dashboard');
+            router.push('/login?registered=true');
         } catch (err: any) {
             setError(err.message || 'Registration failed');
         } finally {
@@ -74,7 +59,7 @@ export default function RegisterPage() {
                         Join FCN IT Support
                     </h2>
                     <p className="text-xl text-white/80">
-                        Create your account to start requesting IT equipment and get support from our team.
+                        Create your account to start requesting IT equipment. Your secure login password will be emailed to you shortly.
                     </p>
                 </div>
             </div>
@@ -114,7 +99,7 @@ export default function RegisterPage() {
                                     name="name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    className="input pl-10"
+                                    className="input !pl-10"
                                     placeholder="John Doe"
                                     required
                                 />
@@ -132,7 +117,7 @@ export default function RegisterPage() {
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="input pl-10"
+                                    className="input !pl-10"
                                     placeholder="you@company.com"
                                     required
                                 />
@@ -150,51 +135,8 @@ export default function RegisterPage() {
                                     name="department"
                                     value={formData.department}
                                     onChange={handleChange}
-                                    className="input pl-10"
+                                    className="input !pl-10"
                                     placeholder="Engineering"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className="input pl-10 pr-10"
-                                    placeholder="••••••••"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                >
-                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Confirm Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    name="confirmPassword"
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    className="input pl-10"
-                                    placeholder="••••••••"
-                                    required
                                 />
                             </div>
                         </div>

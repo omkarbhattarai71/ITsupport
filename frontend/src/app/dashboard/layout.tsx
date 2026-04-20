@@ -114,9 +114,12 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                                 </button>
 
                                 {notificationOpen && (
-                                    <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-auto bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700">
-                                        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                                            <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
+                                    <>
+                                        {/* Invisible overlay to close dropdown */}
+                                        <div className="fixed inset-0 z-40" onClick={() => setNotificationOpen(false)} />
+                                        <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-auto bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50">
+                                            <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                                                <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
                                         </div>
                                         <div className="divide-y divide-slate-100 dark:divide-slate-700">
                                             {notifications.length === 0 ? (
@@ -128,7 +131,13 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                                                         onClick={() => {
                                                             markAsRead(notification.id);
                                                             if (notification.link) {
-                                                                router.push(notification.link);
+                                                                // Sanitize old links to avoid 404s
+                                                                let linkStr = notification.link;
+                                                                if (linkStr.match(/\/(requests|tickets|support)\/[a-zA-Z0-9_-]+$/)) {
+                                                                    linkStr = linkStr.replace(/\/[a-zA-Z0-9_-]+$/, '');
+                                                                }
+                                                                const redirectLink = linkStr.startsWith('/') ? linkStr : `/${linkStr}`;
+                                                                router.push(redirectLink);
                                                             }
                                                             setNotificationOpen(false);
                                                         }}
@@ -148,6 +157,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                                             )}
                                         </div>
                                     </div>
+                                    </>
                                 )}
                             </div>
 
@@ -170,9 +180,11 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                                 </button>
 
                                 {profileOpen && (
-                                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700">
-                                        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                                            <p className="font-medium text-slate-900 dark:text-white">{user?.name}</p>
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50">
+                                            <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                                                <p className="font-medium text-slate-900 dark:text-white">{user?.name}</p>
                                             <p className="text-sm text-slate-500">{user?.email}</p>
                                         </div>
                                         <div className="p-2">
@@ -193,6 +205,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                                             </button>
                                         </div>
                                     </div>
+                                    </>
                                 )}
                             </div>
 

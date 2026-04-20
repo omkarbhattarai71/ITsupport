@@ -410,5 +410,68 @@ router.post('/notifications', async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to send notification' });
     }
 });
+// Delete user (admin only)
+router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.params.id;
+
+        if (userId === req.user!.id) {
+            return res.status(400).json({ error: 'Cannot delete your own account' });
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Step 1: Find all ItemRequest IDs for this user
+        const userRequests = await prisma.itemRequest.findMany({
+            where: { userId },
+            select: { id: true },
+        });
+        const requestIds = userRequests.map((r) => r.id);
+
+        // Step 2: Delete RequestItems (children of ItemRequest) first to avoid FK violation
+        if (requestIds.length > 0) {
+            await prisma.requestItem.deleteMany({
+                where: { requestId: { in: requestIds } },
+            });
+        }
+
+        // Step 3: Delete ItemRequests
+        await prisma.itemRequest.deleteMany({ where: { userId } });
+
+        // Step 4: Delete SupportTickets
+        await prisma.supportTicket.deleteMany({ where: { userId } });
+
+        // Step 5: Delete Notifications
+        await prisma.notification.deleteMany({ where: { userId } });
+
+        // Step 6: Nullify ActivityLog userId (preserve audit history)
+        await prisma.activityLog.updateMany({
+            where: { userId },
+            data: { userId: null },
+        });
+
+        // Step 7: Delete the user
+        await prisma.user.delete({ where: { id: userId } });
+
+        // Step 8: Log this admin action
+        await prisma.activityLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'DELETE',
+                entityType: 'USER',
+                entityId: userId,
+                details: `Admin deleted user account: ${user.name} (${user.email})`,
+            },
+        });
+
+        res.json({ message: `User "${user.name}" deleted successfully` });
+    } catch (error: any) {
+        console.error('Delete user error:', error);
+        res.status(500).json({ error: error?.message || 'Failed to delete user' });
+    }
+});
 
 export default router;
