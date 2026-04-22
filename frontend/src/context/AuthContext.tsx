@@ -74,9 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const logout = async () => {
-        api.setToken(null);
-        setUser(null);
-        // Sign out of both our app AND Microsoft session
+        // We do NOT call setUser(null) here to prevent UI flickering.
+        // signOut with redirect:true cleanly navigates away, and 
+        // the useEffect above handles the actual cleanup when status becomes 'unauthenticated'.
         await signOut({ callbackUrl: '/login', redirect: true });
     };
 

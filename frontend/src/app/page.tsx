@@ -205,7 +205,7 @@ export default function HomePage() {
                         >
                             Sign in with Microsoft
                         </button>
-                        <Link href="/login" className="btn border-2 border-white text-white hover:bg-white/10 text-lg px-8 py-4">
+                        <Link href="https://fcn.dk/" target="_blank" className="btn border-2 border-white text-white hover:bg-white/10 text-lg px-8 py-4">
                             Learn More
                         </Link>
                     </div>

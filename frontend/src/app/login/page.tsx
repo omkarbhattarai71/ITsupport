@@ -1,9 +1,11 @@
+
 'use client';
 
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Monitor, Loader2, ShieldCheck, Users, Zap } from 'lucide-react';
+import { Monitor, Loader2, ShieldCheck, Users, Zap, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginPage() {
     const { data: session, status } = useSession();
@@ -75,57 +77,70 @@ export default function LoginPage() {
             </div>
 
             {/* Right side - Sign in */}
-            <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-slate-950">
-                <div className="w-full max-w-sm animate-fade-in">
-                    {/* Mobile logo */}
-                    <div className="lg:hidden flex items-center gap-3 mb-10">
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-600 rounded-xl flex items-center justify-center">
-                            <Monitor className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-xl font-bold gradient-text">FCN IT Support</span>
-                    </div>
-
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-                        Welcome
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mb-10">
-                        Sign in with your company Microsoft account.
-                        <br />
-                        No separate registration required.
-                    </p>
-
-                    {error && (
-                        <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Microsoft Sign In Button */}
-                    <button
-                        id="microsoft-signin-btn"
-                        onClick={handleMicrosoftSignIn}
-                        disabled={isLoading}
-                        className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+            <div className="flex-1 flex flex-col p-8 bg-white dark:bg-slate-950 relative">
+                {/* Back to Home Button */}
+                <div className="absolute top-8 left-8">
+                    <Link 
+                        href="/" 
+                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                     >
-                        {isLoading ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                            /* Microsoft logo SVG */
-                            <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-                                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-                                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-                                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
-                            </svg>
-                        )}
-                        {isLoading ? 'Redirecting to Microsoft...' : 'Sign in with Microsoft'}
-                    </button>
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Home
+                    </Link>
+                </div>
 
-                    <div className="mt-8 p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
-                            Your sign-in is handled by <strong>Microsoft Entra ID</strong>.
-                            FCN IT Support never stores your password.
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="w-full max-w-sm animate-fade-in mt-12 lg:mt-0">
+                        {/* Mobile logo */}
+                        <div className="lg:hidden flex items-center gap-3 mb-10">
+                            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-accent-600 rounded-xl flex items-center justify-center">
+                                <Monitor className="w-6 h-6 text-white" />
+                            </div>
+                            <span className="text-xl font-bold gradient-text">FCN IT Support</span>
+                        </div>
+
+                        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+                            Welcome
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400 mb-10">
+                            Sign in with your company Microsoft account.
+                            <br />
+                            No separate registration required.
                         </p>
+
+                        {error && (
+                            <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
+                                {error}
+                            </div>
+                        )}
+
+                        {/* Microsoft Sign In Button */}
+                        <button
+                            id="microsoft-signin-btn"
+                            onClick={handleMicrosoftSignIn}
+                            disabled={isLoading}
+                            className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                            {isLoading ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                /* Microsoft logo SVG */
+                                <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                                    <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                                    <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                                </svg>
+                            )}
+                            {isLoading ? 'Redirecting to Microsoft...' : 'Sign in with Microsoft'}
+                        </button>
+
+                        <div className="mt-8 p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+                                Your sign-in is handled by <strong>Microsoft Entra ID</strong>.
+                                FCN IT Support never stores your password.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
