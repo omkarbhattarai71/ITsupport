@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { NextAuthProvider } from '@/context/NextAuthProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 
@@ -19,11 +20,14 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={inter.className}>
-                <AuthProvider>
-                    <NotificationProvider>
-                        {children}
-                    </NotificationProvider>
-                </AuthProvider>
+                {/* NextAuthProvider must wrap everything so useSession() works */}
+                <NextAuthProvider>
+                    <AuthProvider>
+                        <NotificationProvider>
+                            {children}
+                        </NotificationProvider>
+                    </AuthProvider>
+                </NextAuthProvider>
             </body>
         </html>
     );

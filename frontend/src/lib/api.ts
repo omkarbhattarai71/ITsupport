@@ -70,18 +70,13 @@ class ApiClient {
     }
 
 
-    // Auth
-    async register(data: { email: string; password?: string; name: string; department?: string }) {
-        return this.request<{ user: any; token: string }>('/api/auth/register', {
+    // Auth via Microsoft SSO
+    // Sends the Microsoft ID token to our backend which verifies it and
+    // auto-creates/finds the user, then returns our app's JWT.
+    async ssoExchange(idToken: string) {
+        return this.request<{ user: any; token: string }>('/api/auth/sso', {
             method: 'POST',
-            body: data,
-        });
-    }
-
-    async login(data: { email: string; password: string }) {
-        return this.request<{ user: any; token: string }>('/api/auth/login', {
-            method: 'POST',
-            body: data,
+            body: { idToken },
         });
     }
 

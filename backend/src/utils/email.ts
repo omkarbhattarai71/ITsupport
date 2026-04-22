@@ -6,25 +6,23 @@ let transporter: nodemailer.Transporter | null = null;
 async function getTransporter(): Promise<nodemailer.Transporter> {
     if (transporter) return transporter;
 
-    // We will bypass Real SMTP for now because we know Office365 SMTP Auth is blocked at the tenant level.
-    // This requires an M365 Admin to unblock. We'll use Ethereal to ensure registration works.
-    console.log("⚠️  Bypassing Office 365 (SMTP AUTH disabled). Using ETHEREAL.");
-    console.log("    → Go to https://ethereal.email to view sent emails.");
-    
+    // In production, we should use the real SMTP server from .env
+    // Make sure to unblock SMTP AUTH in Microsoft 365 Admin Center for the used email account,
+    // or use a generic SMTP provider like SendGrid, Mailgun, or Resend.
     try {
-        const testAccount = await nodemailer.createTestAccount();
         transporter = nodemailer.createTransport({
-            host: "smtp.ethereal.email",
-            port: 587,
-            secure: false,
+            host: process.env.EMAIL_HOST || "smtp.office365.com",
+            port: Number(process.env.EMAIL_PORT) || 587,
+            secure: process.env.EMAIL_SECURE === "true", // false for TLS (587)
             auth: {
-                user: testAccount.user,
-                pass: testAccount.pass,
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
             },
         });
+        
         return transporter;
     } catch (err) {
-        console.error("❌ Failed to create Ethereal account:", err);
+        console.error("❌ Failed to create SMTP transporter:", err);
         throw err;
     }
 }
@@ -34,7 +32,7 @@ export async function sendPasswordEmail(
     generatedPassword: string
 ): Promise<boolean> {
     const mailOptions = {
-        from: '"FCN IT Support" <noreply@fcn.dk>', // Ethereal will overwrite the FROM but the name stays
+        from: process.env.EMAIL_FROM || '"FCN IT Support" <noreply@fcn.dk>',
         to,
         subject: "FCN IT Support - Your Temporary Login Password",
         text: `Your temporary password is: ${generatedPassword}`,
@@ -57,31 +55,11 @@ export async function sendPasswordEmail(
         const mailer = await getTransporter();
         const info = await mailer.sendMail(mailOptions);
 
-        console.log("✅ Ethereal email sent:", info.messageId);
-        
-        const preview = nodemailer.getTestMessageUrl(info);
-        if (preview) {
-            console.log("🔍 Ethereal Preview URL:", preview);
-            
-            // Print the password clearly in the server console so you don't even need to open the URL
-            console.log("\n=============================================");
-            console.log(`👤 NEW USER CREATED: ${to}`);
-            console.log(`🔑 PASSWORD:         ${generatedPassword}`);
-            console.log("=============================================\n");
-        }
+        console.log("✅ Email sent:", info.messageId);
         
         return true;
     } catch (error) {
-        console.error("❌ Ethereal Email error:", error);
-        
-        // Final fallback: If even Ethereal fails (e.g. rate limit), just print it to console and pretend it succeeded
-        // so the frontend registration process is not completely broken during testing.
-        console.warn("⚠️  Ethereal failed. Falling back to SERVER CONSOLE ONLY.");
-        console.log("\n=============================================");
-        console.log(`👤 NEW USER CREATED (NO EMAIL SENT): ${to}`);
-        console.log(`🔑 PASSWORD:                        ${generatedPassword}`);
-        console.log("=============================================\n");
-        
-        return true; 
+        console.error("❌ Email error:", error);
+        return false; 
     }
 }

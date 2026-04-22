@@ -141,7 +141,7 @@ export default function AdminInventoryPage() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search items..."
-                        className="input pl-10"
+                        className="input !pl-10"
                     />
                 </div>
                 <div className="flex gap-2 flex-wrap">

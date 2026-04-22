@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 import { useAuth } from '@/context/AuthContext';
 import {
     Monitor,
@@ -41,14 +42,13 @@ export default function HomePage() {
                                     <ArrowRight className="w-4 h-4" />
                                 </Link>
                             ) : (
-                                <>
-                                    <Link href="/login" className="btn btn-secondary">
-                                        Sign In
-                                    </Link>
-                                    <Link href="/register" className="btn btn-primary">
-                                        Get Started
-                                    </Link>
-                                </>
+                                <button
+                                    onClick={() => signIn('azure-ad', { callbackUrl: '/dashboard' })}
+                                    className="btn btn-primary"
+                                >
+                                    Sign in with Microsoft
+                                    <ArrowRight className="w-4 h-4" />
+                                </button>
                             )}
                         </div>
                     </div>
@@ -84,10 +84,13 @@ export default function HomePage() {
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                            <Link href="/register" className="btn btn-primary text-lg px-8 py-4">
-                                Start Requesting
+                            <button
+                                onClick={() => signIn('azure-ad', { callbackUrl: '/dashboard' })}
+                                className="btn btn-primary text-lg px-8 py-4"
+                            >
+                                Sign in with Microsoft
                                 <ArrowRight className="w-5 h-5" />
-                            </Link>
+                            </button>
                             <Link href="/catalog" className="btn btn-outline border-white text-white hover:bg-white/10 text-lg px-8 py-4">
                                 Browse Catalog
                             </Link>
@@ -196,11 +199,14 @@ export default function HomePage() {
                         Join your colleagues and start managing your IT equipment requests today.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link href="/register" className="btn bg-white text-primary-700 hover:bg-slate-100 text-lg px-8 py-4">
-                            Create Account
-                        </Link>
+                        <button
+                            onClick={() => signIn('azure-ad', { callbackUrl: '/dashboard' })}
+                            className="btn bg-white text-primary-700 hover:bg-slate-100 text-lg px-8 py-4"
+                        >
+                            Sign in with Microsoft
+                        </button>
                         <Link href="/login" className="btn border-2 border-white text-white hover:bg-white/10 text-lg px-8 py-4">
-                            Sign In
+                            Learn More
                         </Link>
                     </div>
                 </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import api from '@/lib/api';
 
 interface User {
@@ -15,63 +16,80 @@ interface User {
 interface AuthContextType {
     user: User | null;
     loading: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    register: (data: { email: string; password?: string; name: string; department?: string }) => Promise<void>;
-    logout: () => void;
+    logout: () => Promise<void>;
     isAdmin: boolean;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+    const { data: session, status } = useSession();
     const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [syncing, setSyncing] = useState(false);
 
+    // When Microsoft SSO session is ready, exchange for our app's JWT
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            api.setToken(token);
-            loadUser();
-        } else {
-            setLoading(false);
+        if (status === 'authenticated' && session && !user && !syncing) {
+            syncWithBackend(session);
         }
-    }, []);
-
-    const loadUser = async () => {
-        try {
-            const { user } = await api.getMe();
-            setUser(user);
-        } catch (error) {
+        if (status === 'unauthenticated') {
+            // Clear everything when Microsoft session ends
             api.setToken(null);
+            setUser(null);
+        }
+    }, [status, session]);
+
+    const syncWithBackend = async (session: any) => {
+        setSyncing(true);
+        try {
+            // Send Microsoft ID token to our backend
+            // Backend verifies it and returns our app's JWT + user profile
+            const idToken = (session as any).idToken;
+            if (!idToken) {
+                console.error('No ID token in session');
+                return;
+            }
+
+            const { user: appUser, token } = await api.ssoExchange(idToken);
+            api.setToken(token);
+            setUser(appUser);
+        } catch (err) {
+            console.error('SSO backend sync failed:', err);
+            // Force sign out of Microsoft session too if backend rejects
+            await signOut({ redirect: false });
         } finally {
-            setLoading(false);
+            setSyncing(false);
         }
     };
 
-    const login = async (email: string, password: string) => {
-        const { user, token } = await api.login({ email, password });
-        api.setToken(token);
-        setUser(user);
+    const refreshUser = async () => {
+        try {
+            const { user: freshUser } = await api.getMe();
+            setUser(freshUser);
+        } catch {
+            // Token expired or invalid — log out
+            logout();
+        }
     };
 
-    const register = async (data: { email: string; password?: string; name: string; department?: string }) => {
-        await api.register(data);
-    };
-
-    const logout = () => {
+    const logout = async () => {
         api.setToken(null);
         setUser(null);
+        // Sign out of both our app AND Microsoft session
+        await signOut({ callbackUrl: '/login', redirect: true });
     };
+
+    const loading = status === 'loading' || syncing;
 
     return (
         <AuthContext.Provider
             value={{
                 user,
                 loading,
-                login,
-                register,
                 logout,
                 isAdmin: user?.role === 'ADMIN',
+                refreshUser,
             }}
         >
             {children}
