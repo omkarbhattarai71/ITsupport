@@ -30,7 +30,7 @@ const navigation = [
 export default function UserLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout, loading } = useAuth();
+    const { user, logout, loading, isAdmin } = useAuth();
     const { unreadCount, notifications, markAsRead } = useNotifications();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
     }
 
     // Redirect admin to admin dashboard
-    if (!loading && user?.role === 'ADMIN') {
+    if (!loading && isAdmin) {
         router.push('/admin/dashboard');
         return null;
     }

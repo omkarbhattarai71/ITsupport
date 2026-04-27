@@ -60,25 +60,27 @@ router.post('/sso', async (req, res) => {
             });
         }
 
-        // Find existing user or auto-create on first login (provisioning)
         let user = await prisma.user.findUnique({
             where: { email },
             select: { id: true, email: true, name: true, role: true, department: true },
         });
 
         if (!user) {
+            // Count existing users
+            const userCount = await prisma.user.count();
+
             // First time this person logs in — create their profile automatically
             user = await prisma.user.create({
                 data: {
                     email,
                     name,
                     password: '',      // No password — identity is managed by Microsoft
-                    role: 'USER',      // Default role; admin can promote via admin panel
+                    role: userCount === 0 ? 'HEAD_ADMIN' : 'USER',
                 },
                 select: { id: true, email: true, name: true, role: true, department: true },
             });
 
-            console.log(`✅ Auto-provisioned new SSO user: ${email}`);
+            console.log(`✅ Auto-provisioned new SSO user: ${email} (Role: ${userCount === 0 ? 'HEAD_ADMIN' : 'USER'})`);
 
             // Log the first-time provisioning
             await prisma.activityLog.create({

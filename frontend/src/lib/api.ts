@@ -223,6 +223,20 @@ class ApiClient {
         });
     }
 
+    async updateUserRole(id: string, role: string) {
+        return this.request<{ message: string; user: any }>(`/api/admin/users/${id}/role`, {
+            method: 'PUT',
+            body: { role },
+        });
+    }
+
+    async updateUser(id: string, data: { department?: string }) {
+        return this.request<{ message: string; user: any }>(`/api/admin/users/${id}`, {
+            method: 'PUT',
+            body: data,
+        });
+    }
+
     async sendNotification(data: { userId: string; title: string; message: string; type?: string }) {
         return this.request<{ notification: any }>('/api/admin/notifications', {
             method: 'POST',

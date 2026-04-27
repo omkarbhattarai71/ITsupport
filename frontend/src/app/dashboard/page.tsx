@@ -189,14 +189,14 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Recent Tickets */}
-                <div className="card">
+                <div className="card flex flex-col">
                     <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Recent Tickets</h2>
                         <Link href="/dashboard/support" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
                             View all
                         </Link>
                     </div>
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 flex-1">
                         {tickets.slice(0, 4).map((ticket) => (
                             <div key={ticket.id} className="p-4 flex items-center justify-between">
                                 <div>
@@ -213,8 +213,53 @@ export default function DashboardPage() {
                             </div>
                         ))}
                         {tickets.length === 0 && (
-                            <p className="p-6 text-center text-slate-500">No tickets yet</p>
+                            <div className="h-full flex items-center justify-center min-h-[120px]">
+                                <p className="text-slate-500">No tickets yet</p>
+                            </div>
                         )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Help & Resources */}
+            <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Help & Resources</h2>
+                <div className="grid md:grid-cols-3 gap-6">
+                    <a href="https://fcn.dk/it-policy" target="_blank" rel="noreferrer" className="card card-hover p-6 block">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
+                                <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">IT Policies</h3>
+                        </div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                            Review the company policies regarding hardware usage and security.
+                        </p>
+                    </a>
+                    
+                    <a href="#" className="card card-hover p-6 block">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+                                <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">Knowledge Base</h3>
+                        </div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                            Find quick solutions to common IT problems before submitting a ticket.
+                        </p>
+                    </a>
+
+                    <div className="card p-6 bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 text-white">
+                        <h3 className="font-semibold mb-2 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            System Status
+                        </h3>
+                        <p className="text-sm text-slate-300 mb-4">
+                            All systems are fully operational. Network latency is normal.
+                        </p>
+                        <div className="text-xs text-slate-400 mt-auto pt-4 border-t border-white/10">
+                            Last checked: Just now
+                        </div>
                     </div>
                 </div>
             </div>

@@ -18,6 +18,7 @@ interface AuthContextType {
     loading: boolean;
     logout: () => Promise<void>;
     isAdmin: boolean;
+    isHeadAdmin: boolean;
     refreshUser: () => Promise<void>;
 }
 
@@ -88,7 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user,
                 loading,
                 logout,
-                isAdmin: user?.role === 'ADMIN',
+                isAdmin: user?.role === 'ADMIN' || user?.role === 'HEAD_ADMIN',
+                isHeadAdmin: user?.role === 'HEAD_ADMIN',
                 refreshUser,
             }}
         >

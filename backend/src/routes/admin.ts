@@ -410,6 +410,88 @@ router.post('/notifications', async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to send notification' });
     }
 });
+
+// Update basic user info (Admin)
+router.put('/users/:id', async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.params.id;
+        const { department } = req.body;
+
+        const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (!targetUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { department },
+            select: { id: true, name: true, email: true, role: true, department: true }
+        });
+
+        // Log this admin action
+        await prisma.activityLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'UPDATE',
+                entityType: 'USER',
+                entityId: userId,
+                details: `Admin updated user details for ${updatedUser.name}`,
+            },
+        });
+
+        res.json({ message: 'User updated successfully', user: updatedUser });
+    } catch (error: any) {
+        console.error('Update user error:', error);
+        res.status(500).json({ error: 'Failed to update user' });
+    }
+});
+// Update user role (HEAD_ADMIN only)
+router.put('/users/:id/role', async (req: AuthRequest, res: Response) => {
+    try {
+        if (req.user?.role !== 'HEAD_ADMIN') {
+            return res.status(403).json({ error: 'Only Head Administrators can manage roles' });
+        }
+
+        const userId = req.params.id;
+        const { role } = req.body;
+
+        if (!['USER', 'ADMIN', 'HEAD_ADMIN'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
+
+        if (userId === req.user.id) {
+            return res.status(400).json({ error: 'Cannot change your own role' });
+        }
+
+        const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (!targetUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { role },
+            select: { id: true, name: true, email: true, role: true }
+        });
+
+        // Log this admin action
+        await prisma.activityLog.create({
+            data: {
+                userId: req.user.id,
+                action: 'UPDATE',
+                entityType: 'USER',
+                entityId: userId,
+                details: `Head Admin changed user role: ${updatedUser.name} to ${role}`,
+            },
+        });
+
+        res.json({ message: `Role updated to ${role}`, user: updatedUser });
+    } catch (error: any) {
+        console.error('Update role error:', error);
+        res.status(500).json({ error: 'Failed to update role' });
+    }
+});
+
 // Delete user (admin only)
 router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
     try {
@@ -422,6 +504,10 @@ router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
+        }
+
+        if (user.role === 'HEAD_ADMIN' && req.user!.role !== 'HEAD_ADMIN') {
+            return res.status(403).json({ error: 'Cannot delete a Head Administrator' });
         }
 
         // Step 1: Find all ItemRequest IDs for this user

@@ -125,7 +125,10 @@ export default function AdminUsersPage() {
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-    const { user: currentUser } = useAuth();
+    const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
+    const [editingDepartment, setEditingDepartment] = useState<string | null>(null);
+    const [departmentInput, setDepartmentInput] = useState<string>('');
+    const { user: currentUser, isHeadAdmin } = useAuth();
 
     useEffect(() => {
         fetchUsers();
@@ -139,6 +142,31 @@ export default function AdminUsersPage() {
             console.error('Failed to fetch users:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleRoleChange = async (targetUser: any, newRole: string) => {
+        try {
+            setRoleUpdating(targetUser.id);
+            const res = await api.updateUserRole(targetUser.id, newRole);
+            setUsers(prev => prev.map(u => u.id === targetUser.id ? { ...u, role: newRole } : u));
+            showToast(res.message || `Role updated to ${newRole}`, 'success');
+        } catch (error: any) {
+            showToast(error.message || 'Failed to update role', 'error');
+        } finally {
+            setRoleUpdating(null);
+        }
+    };
+
+    const handleDepartmentSave = async (userId: string) => {
+        try {
+            const res = await api.updateUser(userId, { department: departmentInput });
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, department: departmentInput } : u));
+            showToast('Department updated', 'success');
+        } catch (error: any) {
+            showToast(error.message || 'Failed to update department', 'error');
+        } finally {
+            setEditingDepartment(null);
         }
     };
 
@@ -257,17 +285,47 @@ export default function AdminUsersPage() {
                                         <td>
                                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                                                 <Building className="w-4 h-4" />
-                                                {user.department || 'Not set'}
+                                                {editingDepartment === user.id ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <input 
+                                                            type="text" 
+                                                            value={departmentInput} 
+                                                            onChange={(e) => setDepartmentInput(e.target.value)}
+                                                            className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-primary-500 w-24"
+                                                            autoFocus
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') handleDepartmentSave(user.id);
+                                                                if (e.key === 'Escape') setEditingDepartment(null);
+                                                            }}
+                                                        />
+                                                        <button 
+                                                            onClick={() => handleDepartmentSave(user.id)}
+                                                            className="text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium text-xs px-1"
+                                                        >
+                                                            Save
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 group cursor-pointer" onClick={() => {
+                                                        setDepartmentInput(user.department || '');
+                                                        setEditingDepartment(user.id);
+                                                    }}>
+                                                        <span>{user.department || 'Not set'}</span>
+                                                        <span className="opacity-0 group-hover:opacity-100 text-xs text-primary-500 ml-1">Edit</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td>
                                             <span className={clsx(
                                                 'badge',
-                                                user.role === 'ADMIN'
-                                                    ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
-                                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                                                user.role === 'HEAD_ADMIN'
+                                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 font-bold'
+                                                    : user.role === 'ADMIN'
+                                                        ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                                                        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                                             )}>
-                                                {user.role}
+                                                {user.role.replace('_', ' ')}
                                             </span>
                                         </td>
                                         <td>
@@ -290,15 +348,31 @@ export default function AdminUsersPage() {
                                             {format(new Date(user.createdAt), 'MMM d, yyyy')}
                                         </td>
                                         <td className="text-right">
-                                            <button
-                                                onClick={() => setUserToDelete(user)}
-                                                disabled={user.id === currentUser?.id}
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-                                                title={user.id === currentUser?.id ? 'Cannot delete your own account' : 'Delete user'}
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                                Delete
-                                            </button>
+                                            <div className="flex items-center justify-end gap-2">
+                                                {/* Role Management (Head Admin Only) */}
+                                                {isHeadAdmin && user.id !== currentUser?.id && (
+                                                    <select
+                                                        value={user.role}
+                                                        onChange={(e) => handleRoleChange(user, e.target.value)}
+                                                        disabled={roleUpdating === user.id}
+                                                        className="text-xs font-medium px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer disabled:opacity-50"
+                                                    >
+                                                        <option value="USER">User</option>
+                                                        <option value="ADMIN">IT Admin</option>
+                                                        <option value="HEAD_ADMIN">Head Admin</option>
+                                                    </select>
+                                                )}
+
+                                                <button
+                                                    onClick={() => setUserToDelete(user)}
+                                                    disabled={user.id === currentUser?.id || (user.role === 'HEAD_ADMIN' && !isHeadAdmin)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    title={user.id === currentUser?.id ? 'Cannot delete your own account' : 'Delete user'}
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    {roleUpdating === user.id ? 'Wait...' : 'Delete'}
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
-    const { user, loading } = useAuth();
+    const { user, loading, isAdmin } = useAuth();
 
     return (
         <div className="min-h-screen">
@@ -35,7 +35,7 @@ export default function HomePage() {
                                 <div className="w-24 h-10 skeleton rounded-lg" />
                             ) : user ? (
                                 <Link
-                                    href={user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'}
+                                    href={isAdmin ? '/admin/dashboard' : '/dashboard'}
                                     className="btn btn-primary"
                                 >
                                     Dashboard
