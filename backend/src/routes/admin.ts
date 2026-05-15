@@ -8,7 +8,9 @@ const router = Router();
 // All admin routes require authentication and admin role
 router.use(authenticateToken, requireAdmin);
 
-// Get dashboard stats
+// ─────────────────────────────────────────────────────────────────────────────
+//  Dashboard stats
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/stats', async (req: AuthRequest, res: Response) => {
     try {
         const [
@@ -29,20 +31,13 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
             prisma.inventoryItem.count({ where: { quantity: { lt: 5 } } }),
         ]);
 
-        // Recent activity
         const recentActivity = await prisma.activityLog.findMany({
             take: 10,
             orderBy: { createdAt: 'desc' },
             include: {
-                user: {
-                    select: { name: true, email: true },
-                },
+                user: { select: { name: true, email: true } },
             },
         });
-
-        // Most requested items (last 30 days)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         const topItems = await prisma.requestItem.groupBy({
             by: ['inventoryItemId'],
@@ -56,10 +51,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
                 const inventoryItem = await prisma.inventoryItem.findUnique({
                     where: { id: item.inventoryItemId },
                 });
-                return {
-                    ...inventoryItem,
-                    requestCount: item._sum.quantity,
-                };
+                return { ...inventoryItem, requestCount: item._sum.quantity };
             })
         );
 
@@ -82,18 +74,16 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
     }
 });
 
-// Get all requests (admin)
+// ─────────────────────────────────────────────────────────────────────────────
+//  Requests
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/requests', async (req: AuthRequest, res: Response) => {
     try {
         const { status, priority, search } = req.query;
 
         const where: any = {};
-        if (status && status !== 'all') {
-            where.status = status as string;
-        }
-        if (priority && priority !== 'all') {
-            where.priority = priority as string;
-        }
+        if (status && status !== 'all') where.status = status as string;
+        if (priority && priority !== 'all') where.priority = priority as string;
         if (search) {
             where.OR = [
                 { user: { name: { contains: search as string } } },
@@ -105,14 +95,8 @@ router.get('/requests', async (req: AuthRequest, res: Response) => {
         const requests = await prisma.itemRequest.findMany({
             where,
             include: {
-                items: {
-                    include: {
-                        inventoryItem: true,
-                    },
-                },
-                user: {
-                    select: { id: true, name: true, email: true, department: true },
-                },
+                items: { include: { inventoryItem: true } },
+                user: { select: { id: true, name: true, email: true, department: true } },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -124,10 +108,9 @@ router.get('/requests', async (req: AuthRequest, res: Response) => {
     }
 });
 
-// Update request status
 const updateStatusSchema = z.object({
     status: z.enum(['PENDING', 'APPROVED', 'DECLINED', 'READY', 'COLLECTED', 'RETURNED']),
-    adminNotes: z.string().optional(),
+    adminNotes: z.string().max(500).optional(),
 });
 
 router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
@@ -152,12 +135,10 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
             approvedBy: req.user!.id,
         };
 
-        // Set timestamps based on status
         if (data.status === 'APPROVED') updateData.approvedAt = new Date();
         if (data.status === 'COLLECTED') updateData.collectedAt = new Date();
         if (data.status === 'RETURNED') updateData.returnedAt = new Date();
 
-        // Update inventory quantities on collection
         if (data.status === 'COLLECTED') {
             for (const item of existingRequest.items) {
                 await prisma.inventoryItem.update({
@@ -167,7 +148,6 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
             }
         }
 
-        // Restore inventory on return
         if (data.status === 'RETURNED') {
             for (const item of existingRequest.items) {
                 await prisma.inventoryItem.update({
@@ -186,7 +166,6 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
             },
         });
 
-        // Send notification to user
         const notificationMessages: Record<string, { title: string; message: string; type: string }> = {
             APPROVED: {
                 title: 'Request Approved',
@@ -215,7 +194,6 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
             });
         }
 
-        // Log activity
         await prisma.activityLog.create({
             data: {
                 userId: req.user!.id,
@@ -236,25 +214,21 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
     }
 });
 
-// Get all tickets (admin)
+// ─────────────────────────────────────────────────────────────────────────────
+//  Tickets
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/tickets', async (req: AuthRequest, res: Response) => {
     try {
         const { status, priority } = req.query;
 
         const where: any = {};
-        if (status && status !== 'all') {
-            where.status = status as string;
-        }
-        if (priority && priority !== 'all') {
-            where.priority = priority as string;
-        }
+        if (status && status !== 'all') where.status = status as string;
+        if (priority && priority !== 'all') where.priority = priority as string;
 
         const tickets = await prisma.supportTicket.findMany({
             where,
             include: {
-                user: {
-                    select: { id: true, name: true, email: true, department: true },
-                },
+                user: { select: { id: true, name: true, email: true, department: true } },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -266,10 +240,9 @@ router.get('/tickets', async (req: AuthRequest, res: Response) => {
     }
 });
 
-// Update ticket status
 const updateTicketSchema = z.object({
     status: z.enum(['OPEN', 'IN_PROGRESS', 'WAITING_INFO', 'RESOLVED', 'CLOSED']),
-    resolution: z.string().optional(),
+    resolution: z.string().max(1000).optional(),
     assignedTo: z.string().optional(),
 });
 
@@ -299,12 +272,9 @@ router.put('/tickets/:id/status', async (req: AuthRequest, res: Response) => {
         const ticket = await prisma.supportTicket.update({
             where: { id: req.params.id },
             data: updateData,
-            include: {
-                user: { select: { id: true, name: true, email: true } },
-            },
+            include: { user: { select: { id: true, name: true, email: true } } },
         });
 
-        // Send notification
         await prisma.notification.create({
             data: {
                 userId: existingTicket.userId,
@@ -315,7 +285,6 @@ router.put('/tickets/:id/status', async (req: AuthRequest, res: Response) => {
             },
         });
 
-        // Log activity
         await prisma.activityLog.create({
             data: {
                 userId: req.user!.id,
@@ -336,7 +305,9 @@ router.put('/tickets/:id/status', async (req: AuthRequest, res: Response) => {
     }
 });
 
-// Get activity logs
+// ─────────────────────────────────────────────────────────────────────────────
+//  Activity logs
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/logs', async (req: AuthRequest, res: Response) => {
     try {
         const { entityType, action, limit } = req.query;
@@ -345,13 +316,15 @@ router.get('/logs', async (req: AuthRequest, res: Response) => {
         if (entityType) where.entityType = entityType as string;
         if (action) where.action = action as string;
 
+        // Cap limit to 500 to prevent full-table dumps
+        const parsedLimit = limit ? parseInt(limit as string, 10) : 100;
+        const safeLimit = isNaN(parsedLimit) ? 100 : Math.min(Math.max(parsedLimit, 1), 500);
+
         const logs = await prisma.activityLog.findMany({
             where,
-            include: {
-                user: { select: { name: true, email: true } },
-            },
+            include: { user: { select: { name: true, email: true } } },
             orderBy: { createdAt: 'desc' },
-            take: limit ? parseInt(limit as string) : 100,
+            take: safeLimit,
         });
 
         res.json({ logs });
@@ -361,7 +334,9 @@ router.get('/logs', async (req: AuthRequest, res: Response) => {
     }
 });
 
-// Get all users (admin)
+// ─────────────────────────────────────────────────────────────────────────────
+//  Users
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/users', async (req: AuthRequest, res: Response) => {
     try {
         const users = await prisma.user.findMany({
@@ -372,12 +347,7 @@ router.get('/users', async (req: AuthRequest, res: Response) => {
                 role: true,
                 department: true,
                 createdAt: true,
-                _count: {
-                    select: {
-                        requests: true,
-                        tickets: true,
-                    },
-                },
+                _count: { select: { requests: true, tickets: true } },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -389,29 +359,53 @@ router.get('/users', async (req: AuthRequest, res: Response) => {
     }
 });
 
-// Send notification to user
+// ─────────────────────────────────────────────────────────────────────────────
+//  Admin notifications — validated with Zod
+// ─────────────────────────────────────────────────────────────────────────────
+const sendNotificationSchema = z.object({
+    userId: z.string().min(1),
+    title: z.string().min(1).max(100),
+    message: z.string().min(1).max(500),
+    type: z
+        .enum([
+            'REQUEST_RECEIVED',
+            'REQUEST_APPROVED',
+            'REQUEST_DECLINED',
+            'READY_TO_COLLECT',
+            'TICKET_UPDATE',
+            'INFO_REQUIRED',
+        ])
+        .optional(),
+    link: z.string().max(200).optional(),
+});
+
 router.post('/notifications', async (req: AuthRequest, res: Response) => {
     try {
-        const { userId, title, message, type, link } = req.body;
+        const data = sendNotificationSchema.parse(req.body);
 
         const notification = await prisma.notification.create({
             data: {
-                userId,
-                title,
-                message,
-                type: type || 'INFO_REQUIRED',
-                link,
+                userId: data.userId,
+                title: data.title,
+                message: data.message,
+                type: data.type || 'INFO_REQUIRED',
+                link: data.link,
             },
         });
 
         res.status(201).json({ notification });
     } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: 'Validation error', details: error.errors });
+        }
         console.error('Send notification error:', error);
         res.status(500).json({ error: 'Failed to send notification' });
     }
 });
 
-// Update basic user info (Admin)
+// ─────────────────────────────────────────────────────────────────────────────
+//  Update user department (Admin)
+// ─────────────────────────────────────────────────────────────────────────────
 router.put('/users/:id', async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.params.id;
@@ -425,10 +419,9 @@ router.put('/users/:id', async (req: AuthRequest, res: Response) => {
         const updatedUser = await prisma.user.update({
             where: { id: userId },
             data: { department },
-            select: { id: true, name: true, email: true, role: true, department: true }
+            select: { id: true, name: true, email: true, role: true, department: true },
         });
 
-        // Log this admin action
         await prisma.activityLog.create({
             data: {
                 userId: req.user!.id,
@@ -445,7 +438,11 @@ router.put('/users/:id', async (req: AuthRequest, res: Response) => {
         res.status(500).json({ error: 'Failed to update user' });
     }
 });
-// Update user role (HEAD_ADMIN only)
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Update user role (HEAD_ADMIN only)
+//  Bumps tokenVersion so existing JWTs for the user are immediately invalidated.
+// ─────────────────────────────────────────────────────────────────────────────
 router.put('/users/:id/role', async (req: AuthRequest, res: Response) => {
     try {
         if (req.user?.role !== 'HEAD_ADMIN') {
@@ -468,20 +465,25 @@ router.put('/users/:id/role', async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
+        // Increment tokenVersion — invalidates all existing JWTs for this user immediately.
+        // The next time the user makes a request, the middleware will reject their token
+        // and force them to re-authenticate (getting a new token with the updated role).
         const updatedUser = await prisma.user.update({
             where: { id: userId },
-            data: { role },
-            select: { id: true, name: true, email: true, role: true }
+            data: {
+                role,
+                tokenVersion: { increment: 1 },
+            },
+            select: { id: true, name: true, email: true, role: true },
         });
 
-        // Log this admin action
         await prisma.activityLog.create({
             data: {
                 userId: req.user.id,
                 action: 'UPDATE',
                 entityType: 'USER',
                 entityId: userId,
-                details: `Head Admin changed user role: ${updatedUser.name} to ${role}`,
+                details: `Head Admin changed user role: ${updatedUser.name} to ${role} (session invalidated)`,
             },
         });
 
@@ -492,7 +494,9 @@ router.put('/users/:id/role', async (req: AuthRequest, res: Response) => {
     }
 });
 
-// Delete user (admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+//  Delete user (Admin)
+// ─────────────────────────────────────────────────────────────────────────────
 router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.params.id;
@@ -517,7 +521,7 @@ router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
         });
         const requestIds = userRequests.map((r) => r.id);
 
-        // Step 2: Delete RequestItems (children of ItemRequest) first to avoid FK violation
+        // Step 2: Delete RequestItems first to avoid FK violation
         if (requestIds.length > 0) {
             await prisma.requestItem.deleteMany({
                 where: { requestId: { in: requestIds } },
@@ -539,7 +543,7 @@ router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
             data: { userId: null },
         });
 
-        // Step 7: Delete the user
+        // Step 7: Delete the user (their JWT will be auto-invalidated since user no longer exists)
         await prisma.user.delete({ where: { id: userId } });
 
         // Step 8: Log this admin action

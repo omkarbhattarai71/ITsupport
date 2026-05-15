@@ -7,23 +7,31 @@ interface ApiOptions {
 }
 
 class ApiClient {
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Token is stored ONLY in memory — never in localStorage or sessionStorage.
+    //
+    //  Why: localStorage is readable by any JavaScript on the page (XSS).
+    //       The NextAuth session (httpOnly cookie) handles persistence across
+    //       page reloads. AuthContext.tsx re-exchanges the NextAuth token for a
+    //       fresh app JWT automatically on every mount, so the brief loading
+    //       state is transparent to users.
+    // ─────────────────────────────────────────────────────────────────────────
     private token: string | null = null;
 
     setToken(token: string | null) {
+        // Store only in memory
         this.token = token;
-        if (token) {
-            localStorage.setItem('token', token);
-        } else {
-            localStorage.removeItem('token');
-        }
     }
 
     getToken(): string | null {
-        if (this.token) return this.token;
-        if (typeof window !== 'undefined') {
-            this.token = localStorage.getItem('token');
-        }
         return this.token;
+    }
+
+    /**
+     * Clear the in-memory token (e.g. on logout or auth error).
+     */
+    clearToken() {
+        this.token = null;
     }
 
     async request<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
@@ -40,6 +48,8 @@ class ApiClient {
                 'Content-Type': 'application/json',
                 ...headers,
             },
+            // Credentials ensure cookies (NextAuth session) are sent on same-origin requests
+            credentials: 'same-origin',
         };
 
         if (body) {
@@ -55,9 +65,10 @@ class ApiClient {
             data = await response.json();
         } else {
             const text = await response.text();
-            // If not JSON, create a readable error from the status
             if (!response.ok) {
-                throw new Error(`Server error (${response.status}): ${response.statusText || 'Unexpected response from server'}`);
+                throw new Error(
+                    `Server error (${response.status}): ${response.statusText || 'Unexpected response'}`
+                );
             }
             data = { message: text };
         }
@@ -69,10 +80,11 @@ class ApiClient {
         return data;
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Auth
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // Auth via Microsoft SSO
-    // Sends the Microsoft ID token to our backend which verifies it and
-    // auto-creates/finds the user, then returns our app's JWT.
+    // Exchange a Microsoft ID token for our app JWT
     async ssoExchange(idToken: string) {
         return this.request<{ user: any; token: string }>('/api/auth/sso', {
             method: 'POST',
@@ -91,10 +103,14 @@ class ApiClient {
         });
     }
 
-    // Inventory
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Inventory
+    // ─────────────────────────────────────────────────────────────────────────
     async getInventory(params?: { category?: string; search?: string }) {
         const query = new URLSearchParams(params as any).toString();
-        return this.request<{ items: any[]; categories: string[] }>(`/api/inventory${query ? `?${query}` : ''}`);
+        return this.request<{ items: any[]; categories: string[] }>(
+            `/api/inventory${query ? `?${query}` : ''}`
+        );
     }
 
     async getInventoryItem(id: string) {
@@ -121,8 +137,14 @@ class ApiClient {
         });
     }
 
-    // Requests
-    async createRequest(data: { items: { inventoryItemId: string; quantity: number }[]; notes?: string; priority?: string }) {
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Requests
+    // ─────────────────────────────────────────────────────────────────────────
+    async createRequest(data: {
+        items: { inventoryItemId: string; quantity: number }[];
+        notes?: string;
+        priority?: string;
+    }) {
         return this.request<{ request: any }>('/api/requests', {
             method: 'POST',
             body: data,
@@ -144,7 +166,9 @@ class ApiClient {
         });
     }
 
-    // Tickets
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Tickets
+    // ─────────────────────────────────────────────────────────────────────────
     async createTicket(data: { subject: string; description: string; priority?: string }) {
         return this.request<{ ticket: any }>('/api/tickets', {
             method: 'POST',
@@ -161,10 +185,14 @@ class ApiClient {
         return this.request<{ ticket: any }>(`/api/tickets/${id}`);
     }
 
-    // Notifications
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Notifications
+    // ─────────────────────────────────────────────────────────────────────────
     async getNotifications(unread?: boolean) {
         const query = unread ? '?unread=true' : '';
-        return this.request<{ notifications: any[]; unreadCount: number }>(`/api/notifications${query}`);
+        return this.request<{ notifications: any[]; unreadCount: number }>(
+            `/api/notifications${query}`
+        );
     }
 
     async markNotificationRead(id: string) {
@@ -179,14 +207,20 @@ class ApiClient {
         });
     }
 
-    // Admin
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Admin
+    // ─────────────────────────────────────────────────────────────────────────
     async getAdminStats() {
-        return this.request<{ stats: any; recentActivity: any[]; topItems: any[] }>('/api/admin/stats');
+        return this.request<{ stats: any; recentActivity: any[]; topItems: any[] }>(
+            '/api/admin/stats'
+        );
     }
 
     async getAdminRequests(params?: { status?: string; priority?: string; search?: string }) {
         const query = new URLSearchParams(params as any).toString();
-        return this.request<{ requests: any[] }>(`/api/admin/requests${query ? `?${query}` : ''}`);
+        return this.request<{ requests: any[] }>(
+            `/api/admin/requests${query ? `?${query}` : ''}`
+        );
     }
 
     async updateRequestStatus(id: string, data: { status: string; adminNotes?: string }) {
@@ -198,7 +232,9 @@ class ApiClient {
 
     async getAdminTickets(params?: { status?: string; priority?: string }) {
         const query = new URLSearchParams(params as any).toString();
-        return this.request<{ tickets: any[] }>(`/api/admin/tickets${query ? `?${query}` : ''}`);
+        return this.request<{ tickets: any[] }>(
+            `/api/admin/tickets${query ? `?${query}` : ''}`
+        );
     }
 
     async updateTicketStatus(id: string, data: { status: string; resolution?: string }) {
@@ -237,7 +273,12 @@ class ApiClient {
         });
     }
 
-    async sendNotification(data: { userId: string; title: string; message: string; type?: string }) {
+    async sendNotification(data: {
+        userId: string;
+        title: string;
+        message: string;
+        type?: string;
+    }) {
         return this.request<{ notification: any }>('/api/admin/notifications', {
             method: 'POST',
             body: data,

@@ -8,7 +8,7 @@ interface User {
     id: string;
     email: string;
     name: string;
-    role: 'USER' | 'ADMIN';
+    role: 'USER' | 'ADMIN' | 'HEAD_ADMIN';
     department?: string;
     phone?: string;
 }

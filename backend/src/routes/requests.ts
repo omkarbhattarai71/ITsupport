@@ -132,8 +132,9 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
             return res.status(404).json({ error: 'Request not found' });
         }
 
-        // Check if user owns the request or is admin
-        if (request.userId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        // Check if user owns the request or is admin/head-admin
+        const isAdmin = req.user!.role === 'ADMIN' || req.user!.role === 'HEAD_ADMIN';
+        if (request.userId !== req.user!.id && !isAdmin) {
             return res.status(403).json({ error: 'Access denied' });
         }
 

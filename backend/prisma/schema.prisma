@@ -16,12 +16,15 @@ model User {
   email         String         @unique
   password      String
   name          String
-  role          String         @default("USER") // USER or ADMIN
+  role          String         @default("USER") // USER, ADMIN, HEAD_ADMIN
   department    String?
   phone         String?
+  // Incremented whenever we want to invalidate all existing JWTs for this user
+  // (e.g. role change, forced logout). Middleware rejects tokens with an older version.
+  tokenVersion  Int            @default(0)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  
+
   requests      ItemRequest[]
   tickets       SupportTicket[]
   notifications Notification[]

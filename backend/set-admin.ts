@@ -1,10 +1,11 @@
+/// <reference types="node" />
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
     const email = 'fcnadmin-omk@fcn.dk';
-    console.log(`Setting up HEAD ADMIN for ${email}...`);
+    console.log(`Setting up HEAD_ADMIN for ${email}...`);
 
     let user = await prisma.user.findUnique({
         where: { email },
@@ -13,19 +14,19 @@ async function main() {
     if (user) {
         user = await prisma.user.update({
             where: { email },
-            data: { role: 'HEAD ADMIN' },
+            data: { role: 'HEAD_ADMIN' },
         });
-        console.log(`✅ Existing user updated to HEAD ADMIN: ${user.email}`);
+        console.log(`✅ Existing user updated to HEAD_ADMIN: ${user.email}`);
     } else {
         user = await prisma.user.create({
             data: {
                 email,
                 name: 'System Administrator',
                 password: '', // Managed by SSO
-                role: 'HEAD ADMIN',
+                role: 'HEAD_ADMIN',
             },
         });
-        console.log(`✅ New user created as HEAD ADMIN: ${user.email}`);
+        console.log(`✅ New user created as HEAD_ADMIN: ${user.email}`);
     }
 }
 

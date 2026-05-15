@@ -5,8 +5,8 @@ import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth
 
 const router = Router();
 
-// Get all inventory items
-router.get('/', async (req, res) => {
+// Get all inventory items (authenticated users only)
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
         const { category, search, active } = req.query;
 
@@ -48,8 +48,8 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get single inventory item
-router.get('/:id', async (req, res) => {
+// Get single inventory item (authenticated users only)
+router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
         const item = await prisma.inventoryItem.findUnique({
             where: { id: req.params.id },
