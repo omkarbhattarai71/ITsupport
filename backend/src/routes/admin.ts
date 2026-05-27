@@ -16,16 +16,20 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
         const [
             pendingRequests,
             approvedRequests,
+            activeRequests,
             totalRequests,
             openTickets,
+            activeTickets,
             totalTickets,
             totalUsers,
             lowStockItems,
         ] = await Promise.all([
             prisma.itemRequest.count({ where: { status: 'PENDING' } }),
             prisma.itemRequest.count({ where: { status: 'APPROVED' } }),
+            prisma.itemRequest.count({ where: { status: { in: ['PENDING', 'APPROVED', 'READY'] } } }),
             prisma.itemRequest.count(),
             prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
+            prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING_INFO'] } } }),
             prisma.supportTicket.count(),
             prisma.user.count({ where: { role: 'USER' } }),
             prisma.inventoryItem.count({ where: { quantity: { lt: 5 } } }),
@@ -59,8 +63,10 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
             stats: {
                 pendingRequests,
                 approvedRequests,
+                activeRequests,
                 totalRequests,
                 openTickets,
+                activeTickets,
                 totalTickets,
                 totalUsers,
                 lowStockItems,
@@ -120,7 +126,7 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
         const existingRequest = await prisma.itemRequest.findUnique({
             where: { id: req.params.id },
             include: {
-                user: { select: { id: true, name: true } },
+                user: { select: { id: true, name: true, email: true } },
                 items: { include: { inventoryItem: true } },
             },
         });
@@ -139,6 +145,7 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
         if (data.status === 'COLLECTED') updateData.collectedAt = new Date();
         if (data.status === 'RETURNED') updateData.returnedAt = new Date();
 
+        // Decrement inventory on collection
         if (data.status === 'COLLECTED') {
             for (const item of existingRequest.items) {
                 await prisma.inventoryItem.update({
@@ -148,12 +155,20 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
             }
         }
 
+        // Full return via status change (legacy path — partial returns preferred)
         if (data.status === 'RETURNED') {
             for (const item of existingRequest.items) {
-                await prisma.inventoryItem.update({
-                    where: { id: item.inventoryItemId },
-                    data: { quantity: { increment: item.quantity } },
-                });
+                const unreturned = item.quantity - item.returnedQuantity;
+                if (unreturned > 0) {
+                    await prisma.inventoryItem.update({
+                        where: { id: item.inventoryItemId },
+                        data: { quantity: { increment: unreturned } },
+                    });
+                    await prisma.requestItem.update({
+                        where: { id: item.id },
+                        data: { returnedQuantity: item.quantity },
+                    });
+                }
             }
         }
 
@@ -166,21 +181,49 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
             },
         });
 
+        // Build rich item summary for notification
+        const itemSummary = request.items.map((ri: any) =>
+            `${ri.inventoryItem.name} (x${ri.quantity})`
+        ).join(', ');
+
+        const notifMetadata = JSON.stringify({
+            items: request.items.map((ri: any) => ({
+                name: ri.inventoryItem.name,
+                quantity: ri.quantity,
+                returnedQuantity: ri.returnedQuantity,
+                imageUrl: ri.inventoryItem.imageUrl,
+            })),
+            adminNotes: data.adminNotes,
+            status: data.status,
+            adminName: req.user!.name,
+        });
+
+        // Rich notification messages for every status change
         const notificationMessages: Record<string, { title: string; message: string; type: string }> = {
             APPROVED: {
-                title: 'Request Approved',
-                message: 'Your item request has been approved',
+                title: 'Request Approved ✓',
+                message: `Your request for ${itemSummary} has been approved`,
                 type: 'REQUEST_APPROVED',
             },
             DECLINED: {
                 title: 'Request Declined',
-                message: `Your request was declined. ${data.adminNotes || ''}`,
+                message: `Your request for ${itemSummary} was declined.${data.adminNotes ? ' Reason: ' + data.adminNotes : ''}`,
                 type: 'REQUEST_DECLINED',
             },
             READY: {
-                title: 'Items Ready for Collection',
-                message: 'Your requested items are ready to collect from IT Support',
+                title: 'Items Ready for Collection 📦',
+                message: `Your items are ready to collect from IT Support: ${itemSummary}`,
                 type: 'READY_TO_COLLECT',
+            },
+            COLLECTED: {
+                title: 'Items Collected',
+                message: `Collected: ${itemSummary}`,
+                type: 'REQUEST_APPROVED',
+            },
+            RETURNED: {
+                title: 'All Items Returned ✓',
+                message: `All items have been returned: ${itemSummary}`,
+                type: 'REQUEST_APPROVED',
             },
         };
 
@@ -190,6 +233,9 @@ router.put('/requests/:id/status', async (req: AuthRequest, res: Response) => {
                     userId: existingRequest.userId,
                     ...notificationMessages[data.status],
                     link: '/dashboard/requests',
+                    entityType: 'REQUEST',
+                    entityId: request.id,
+                    metadata: notifMetadata,
                 },
             });
         }
@@ -275,13 +321,27 @@ router.put('/tickets/:id/status', async (req: AuthRequest, res: Response) => {
             include: { user: { select: { id: true, name: true, email: true } } },
         });
 
+        // Rich notification with entity reference and metadata
+        const statusLabel = data.status.replace('_', ' ');
+        const notifMetadata = JSON.stringify({
+            subject: existingTicket.subject,
+            description: existingTicket.description,
+            status: data.status,
+            resolution: data.resolution,
+            priority: existingTicket.priority,
+            adminName: req.user!.name,
+        });
+
         await prisma.notification.create({
             data: {
                 userId: existingTicket.userId,
-                title: 'Ticket Update',
-                message: `Your ticket "${existingTicket.subject}" status: ${data.status}`,
+                title: `Ticket ${statusLabel}`,
+                message: `Your ticket "${existingTicket.subject}" is now ${statusLabel}.${data.resolution ? ' Resolution: ' + data.resolution : ''}`,
                 type: 'TICKET_UPDATE',
                 link: '/dashboard/support',
+                entityType: 'TICKET',
+                entityId: ticket.id,
+                metadata: notifMetadata,
             },
         });
 
@@ -302,6 +362,129 @@ router.put('/tickets/:id/status', async (req: AuthRequest, res: Response) => {
         }
         console.error('Update ticket status error:', error);
         res.status(500).json({ error: 'Failed to update ticket' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Partial item returns
+// ─────────────────────────────────────────────────────────────────────────────
+const returnItemsSchema = z.object({
+    items: z.array(z.object({
+        requestItemId: z.string(),
+        returnQuantity: z.number().int().min(1),
+    })).min(1),
+});
+
+router.put('/requests/:id/return-items', async (req: AuthRequest, res: Response) => {
+    try {
+        const data = returnItemsSchema.parse(req.body);
+        
+        const existingRequest = await prisma.itemRequest.findUnique({
+            where: { id: req.params.id },
+            include: {
+                user: { select: { id: true, name: true, email: true } },
+                items: { include: { inventoryItem: true } },
+            },
+        });
+
+        if (!existingRequest) {
+            return res.status(404).json({ error: 'Request not found' });
+        }
+
+        if (existingRequest.status !== 'COLLECTED') {
+            return res.status(400).json({ error: 'Only collected requests can have items returned' });
+        }
+
+        // Process each returned item in a transaction
+        const returnLog: string[] = [];
+        
+        await prisma.$transaction(async (tx) => {
+            for (const returnInput of data.items) {
+                const item = existingRequest.items.find(ri => ri.id === returnInput.requestItemId);
+                if (!item) {
+                    throw new Error(`Request item ${returnInput.requestItemId} not found in this request`);
+                }
+                
+                const maxReturnable = item.quantity - item.returnedQuantity;
+                if (returnInput.returnQuantity > maxReturnable) {
+                    throw new Error(`Cannot return ${returnInput.returnQuantity} of ${item.inventoryItem.name}. Only ${maxReturnable} left to return.`);
+                }
+                
+                // Update request item
+                await tx.requestItem.update({
+                    where: { id: item.id },
+                    data: { returnedQuantity: { increment: returnInput.returnQuantity } },
+                });
+                
+                // Increment inventory
+                await tx.inventoryItem.update({
+                    where: { id: item.inventoryItemId },
+                    data: { quantity: { increment: returnInput.returnQuantity } },
+                });
+                
+                returnLog.push(`${item.inventoryItem.name} (x${returnInput.returnQuantity})`);
+            }
+        });
+
+        // Check if all items are fully returned now
+        const updatedRequest = await prisma.itemRequest.findUnique({
+            where: { id: req.params.id },
+            include: { items: true },
+        });
+        
+        const allReturned = updatedRequest!.items.every(ri => ri.returnedQuantity === ri.quantity);
+        
+        let newStatus = existingRequest.status;
+        if (allReturned) {
+            newStatus = 'RETURNED';
+            await prisma.itemRequest.update({
+                where: { id: req.params.id },
+                data: { status: 'RETURNED', returnedAt: new Date() },
+            });
+        }
+
+        // Send notification
+        const itemSummary = returnLog.join(', ');
+        
+        const notifMetadata = JSON.stringify({
+            itemsReturned: returnLog,
+            status: newStatus,
+            adminName: req.user!.name,
+        });
+
+        await prisma.notification.create({
+            data: {
+                userId: existingRequest.userId,
+                title: allReturned ? 'All Items Returned ✓' : 'Items Partially Returned',
+                message: `The following items have been marked as returned: ${itemSummary}`,
+                type: 'REQUEST_APPROVED',
+                link: '/dashboard/requests',
+                entityType: 'REQUEST',
+                entityId: existingRequest.id,
+                metadata: notifMetadata,
+            },
+        });
+
+        await prisma.activityLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'PARTIAL_RETURN',
+                entityType: 'REQUEST',
+                entityId: existingRequest.id,
+                details: `Processed partial return for items: ${itemSummary}`,
+            },
+        });
+
+        res.json({ message: 'Return processed successfully', status: newStatus });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: 'Validation error', details: error.errors });
+        }
+        if (error instanceof Error) {
+            return res.status(400).json({ error: error.message });
+        }
+        console.error('Process return error:', error);
+        res.status(500).json({ error: 'Failed to process return' });
     }
 });
 

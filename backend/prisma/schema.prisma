@@ -67,10 +67,11 @@ model ItemRequest {
 
 // Many-to-many relationship between requests and inventory items
 model RequestItem {
-  id              String        @id @default(cuid())
-  requestId       String
-  inventoryItemId String
-  quantity        Int           @default(1)
+  id               String        @id @default(cuid())
+  requestId        String
+  inventoryItemId  String
+  quantity         Int           @default(1)
+  returnedQuantity Int           @default(0)
   
   request         ItemRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
   inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
@@ -97,16 +98,19 @@ model SupportTicket {
 
 // Notifications for users
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  message   String
-  type      String   // REQUEST_RECEIVED, REQUEST_APPROVED, REQUEST_DECLINED, READY_TO_COLLECT, TICKET_UPDATE, INFO_REQUIRED
-  read      Boolean  @default(false)
-  link      String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  message    String
+  type       String   // REQUEST_RECEIVED, REQUEST_APPROVED, REQUEST_DECLINED, READY_TO_COLLECT, TICKET_UPDATE, INFO_REQUIRED
+  read       Boolean  @default(false)
+  link       String?
+  entityType String?  // "REQUEST" or "TICKET"
+  entityId   String?  // The ID of the request/ticket
+  metadata   String?  // JSON string with extra detail (item names, quantities, admin notes, etc.)
+  createdAt  DateTime @default(now())
   
-  user      User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 }
 
 // Activity logs for auditing

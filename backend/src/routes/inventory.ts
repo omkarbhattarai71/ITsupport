@@ -1,9 +1,62 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { prisma } from '../index';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
 
 const router = Router();
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Multer configuration for inventory image uploads
+//  - Max 10 MB
+//  - Only jpeg, png, webp, gif
+//  - Saved to uploads/inventory/ with unique filenames
+// ─────────────────────────────────────────────────────────────────────────────
+const uploadsDir = path.join(__dirname, '..', '..', 'uploads', 'inventory');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `inv-${uniqueSuffix}${ext}`);
+    },
+});
+
+const imageFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only JPEG, PNG, WebP, and GIF images are allowed'));
+    }
+};
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    fileFilter: imageFilter,
+});
+
+/**
+ * Helper to delete an old image file from disk
+ */
+function deleteImageFile(imageUrl: string | null | undefined) {
+    if (!imageUrl || !imageUrl.startsWith('/uploads/inventory/')) return;
+    const filePath = path.join(__dirname, '..', '..', imageUrl);
+    try {
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+    } catch (err) {
+        console.warn('Failed to delete old image:', err);
+    }
+}
 
 // Get all inventory items (authenticated users only)
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
@@ -66,21 +119,34 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
     }
 });
 
-// Create inventory item (admin only)
-const createItemSchema = z.object({
-    name: z.string().min(2),
-    description: z.string().optional(),
-    category: z.string().min(2),
-    quantity: z.number().int().min(0),
-    imageUrl: z.string().optional(),
-});
-
-router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+// Create inventory item (admin only) — supports image upload
+router.post('/', authenticateToken, requireAdmin, upload.single('image'), async (req: AuthRequest, res: Response) => {
     try {
-        const data = createItemSchema.parse(req.body);
+        // Parse form fields (multer puts them in req.body as strings)
+        const name = req.body.name;
+        const description = req.body.description || undefined;
+        const category = req.body.category;
+        const quantity = parseInt(req.body.quantity, 10);
+        const imageUrl = req.file ? `/uploads/inventory/${req.file.filename}` : (req.body.imageUrl || undefined);
+
+        if (!name || name.length < 2) {
+            return res.status(400).json({ error: 'Name must be at least 2 characters' });
+        }
+        if (!category || category.length < 2) {
+            return res.status(400).json({ error: 'Category must be at least 2 characters' });
+        }
+        if (isNaN(quantity) || quantity < 0) {
+            return res.status(400).json({ error: 'Quantity must be a non-negative number' });
+        }
 
         const item = await prisma.inventoryItem.create({
-            data,
+            data: {
+                name,
+                description,
+                category,
+                quantity,
+                imageUrl,
+            },
         });
 
         // Log activity
@@ -96,18 +162,36 @@ router.post('/', authenticateToken, requireAdmin, async (req: AuthRequest, res: 
 
         res.status(201).json({ item });
     } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: 'Validation error', details: error.errors });
-        }
         console.error('Create item error:', error);
         res.status(500).json({ error: 'Failed to create item' });
     }
 });
 
-// Update inventory item (admin only)
-router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+// Update inventory item (admin only) — supports image upload
+router.put('/:id', authenticateToken, requireAdmin, upload.single('image'), async (req: AuthRequest, res: Response) => {
     try {
-        const data = createItemSchema.partial().parse(req.body);
+        const existing = await prisma.inventoryItem.findUnique({
+            where: { id: req.params.id },
+        });
+        if (!existing) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+
+        const data: any = {};
+
+        if (req.body.name !== undefined) data.name = req.body.name;
+        if (req.body.description !== undefined) data.description = req.body.description;
+        if (req.body.category !== undefined) data.category = req.body.category;
+        if (req.body.quantity !== undefined) data.quantity = parseInt(req.body.quantity, 10);
+
+        // Handle image: new upload replaces old, explicit empty string removes image
+        if (req.file) {
+            deleteImageFile(existing.imageUrl);
+            data.imageUrl = `/uploads/inventory/${req.file.filename}`;
+        } else if (req.body.removeImage === 'true') {
+            deleteImageFile(existing.imageUrl);
+            data.imageUrl = null;
+        }
 
         const item = await prisma.inventoryItem.update({
             where: { id: req.params.id },
@@ -127,9 +211,6 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
 
         res.json({ item });
     } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: 'Validation error', details: error.errors });
-        }
         console.error('Update item error:', error);
         res.status(500).json({ error: 'Failed to update item' });
     }
@@ -138,7 +219,18 @@ router.put('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res
 // Delete inventory item (admin only)
 router.delete('/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
-        const item = await prisma.inventoryItem.delete({
+        const item = await prisma.inventoryItem.findUnique({
+            where: { id: req.params.id },
+        });
+
+        if (!item) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+
+        // Delete image file if exists
+        deleteImageFile(item.imageUrl);
+
+        await prisma.inventoryItem.delete({
             where: { id: req.params.id },
         });
 

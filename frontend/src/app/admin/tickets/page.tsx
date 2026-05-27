@@ -26,12 +26,12 @@ export default function AdminTicketsPage() {
 
     useEffect(() => {
         fetchTickets();
-    }, [filter]);
+    }, []);
 
     const fetchTickets = async () => {
         setLoading(true);
         try {
-            const data = await api.getAdminTickets({ status: filter });
+            const data = await api.getAdminTickets({ status: 'all' });
             setTickets(data.tickets);
         } catch (error) {
             console.error('Failed to fetch tickets:', error);
@@ -74,6 +74,8 @@ export default function AdminTicketsPage() {
         return badges[priority] || '';
     };
 
+    const filteredTickets = filter === 'all' ? tickets : tickets.filter(t => t.status === filter);
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Header */}
@@ -86,18 +88,29 @@ export default function AdminTicketsPage() {
 
             {/* Filters */}
             <div className="flex gap-2 flex-wrap">
-                {['OPEN', 'IN_PROGRESS', 'WAITING_INFO', 'RESOLVED', 'CLOSED', 'all'].map((status) => (
-                    <button
-                        key={status}
-                        onClick={() => setFilter(status)}
-                        className={clsx(
-                            'btn',
-                            filter === status ? 'btn-primary' : 'btn-secondary'
-                        )}
-                    >
-                        {status === 'all' ? 'All' : status.replace('_', ' ')}
-                    </button>
-                ))}
+                {['OPEN', 'IN_PROGRESS', 'WAITING_INFO', 'RESOLVED', 'CLOSED', 'all'].map((status) => {
+                    const count = status === 'all' ? tickets.length : tickets.filter(t => t.status === status).length;
+                    return (
+                        <button
+                            key={status}
+                            onClick={() => setFilter(status)}
+                            className={clsx(
+                                'btn',
+                                filter === status ? 'btn-primary' : 'btn-secondary'
+                            )}
+                        >
+                            {status === 'all' ? 'All' : status.replace('_', ' ')}
+                            <span className={clsx(
+                                'ml-2 py-0.5 px-2 rounded-full text-xs font-bold shadow-sm',
+                                filter === status 
+                                    ? 'bg-amber-400 text-amber-900' 
+                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                            )}>
+                                {count}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Tickets list */}
@@ -107,7 +120,7 @@ export default function AdminTicketsPage() {
                         <div key={i} className="skeleton h-28 rounded-2xl" />
                     ))}
                 </div>
-            ) : tickets.length === 0 ? (
+            ) : filteredTickets.length === 0 ? (
                 <div className="text-center py-12 card">
                     <Headphones className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-slate-900 dark:text-white">No tickets found</h3>
@@ -117,7 +130,7 @@ export default function AdminTicketsPage() {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {tickets.map((ticket) => (
+                    {filteredTickets.map((ticket) => (
                         <div key={ticket.id} className="card overflow-hidden">
                             <button
                                 onClick={() => setExpandedId(expandedId === ticket.id ? null : ticket.id)}

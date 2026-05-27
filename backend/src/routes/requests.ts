@@ -44,9 +44,25 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             },
         });
 
-        // Create notification for admins
+        // Build rich metadata for notifications
+        const itemSummary = request.items.map((ri: any) =>
+            `${ri.inventoryItem.name} (x${ri.quantity})`
+        ).join(', ');
+
+        const notifMetadata = JSON.stringify({
+            items: request.items.map((ri: any) => ({
+                name: ri.inventoryItem.name,
+                quantity: ri.quantity,
+                imageUrl: ri.inventoryItem.imageUrl,
+            })),
+            notes: data.notes,
+            priority: data.priority || 'NORMAL',
+            userName: req.user!.name,
+        });
+
+        // Create notification for admins AND head admins
         const admins = await prisma.user.findMany({
-            where: { role: 'ADMIN' },
+            where: { role: { in: ['ADMIN', 'HEAD_ADMIN'] } },
         });
 
         for (const admin of admins) {
@@ -54,9 +70,12 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
                 data: {
                     userId: admin.id,
                     title: 'New Item Request',
-                    message: `${req.user!.name} has submitted a new item request`,
+                    message: `${req.user!.name} requested ${request.items.length} item(s): ${itemSummary}`,
                     type: 'REQUEST_RECEIVED',
                     link: '/admin/requests',
+                    entityType: 'REQUEST',
+                    entityId: request.id,
+                    metadata: notifMetadata,
                 },
             });
         }

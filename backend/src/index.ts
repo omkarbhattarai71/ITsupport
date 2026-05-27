@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 
 // Import routes
@@ -83,6 +84,11 @@ app.use(
 // ─────────────────────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Static file serving — uploaded inventory images
+// ─────────────────────────────────────────────────────────────────────────────
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Rate limiting

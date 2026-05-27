@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
-import { useState } from 'react';
+import NotificationDetailWindow from '@/components/NotificationDetailWindow';
+import { useState, useEffect } from 'react';
+import api from '@/lib/api';
 import {
     Monitor,
     LayoutDashboard,
@@ -36,9 +38,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const pathname = usePathname();
     const router = useRouter();
     const { user, logout, loading, isAdmin } = useAuth();
-    const { unreadCount, notifications, markAsRead } = useNotifications();
+    const { unreadCount, notifications, markAsRead, openNotification } = useNotifications();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
+    const [stats, setStats] = useState<any>(null);
+
+    useEffect(() => {
+        if (isAdmin) {
+            api.getAdminStats().then(data => setStats(data.stats)).catch(console.error);
+        }
+    }, [isAdmin, pathname]);
 
     // Redirect if not authenticated or not admin
     if (!loading && !user) {
@@ -87,14 +96,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 key={item.name}
                                 href={item.href}
                                 className={clsx(
-                                    'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all',
+                                    'flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all',
                                     pathname.startsWith(item.href)
                                         ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/30'
                                         : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                                 )}
                             >
-                                <item.icon className="w-5 h-5" />
-                                {item.name}
+                                <div className="flex items-center gap-3">
+                                    <item.icon className="w-5 h-5" />
+                                    {item.name}
+                                </div>
+                                {stats && item.name === 'Requests' && stats.activeRequests > 0 && (
+                                    <span className="bg-amber-400 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                        {stats.activeRequests}
+                                    </span>
+                                )}
+                                {stats && item.name === 'Tickets' && stats.activeTickets > 0 && (
+                                    <span className="bg-amber-400 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                        {stats.activeTickets}
+                                    </span>
+                                )}
                             </Link>
                         ))}
                     </nav>
@@ -150,14 +171,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     href={item.href}
                                     onClick={() => setSidebarOpen(false)}
                                     className={clsx(
-                                        'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all',
+                                        'flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all',
                                         pathname.startsWith(item.href)
                                             ? 'bg-primary-600 text-white'
                                             : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                                     )}
                                 >
-                                    <item.icon className="w-5 h-5" />
-                                    {item.name}
+                                    <div className="flex items-center gap-3">
+                                        <item.icon className="w-5 h-5" />
+                                        {item.name}
+                                    </div>
+                                    {stats && item.name === 'Requests' && stats.activeRequests > 0 && (
+                                        <span className="bg-amber-400 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                            {stats.activeRequests}
+                                        </span>
+                                    )}
+                                    {stats && item.name === 'Tickets' && stats.activeTickets > 0 && (
+                                        <span className="bg-amber-400 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                            {stats.activeTickets}
+                                        </span>
+                                    )}
                                 </Link>
                             ))}
                         </nav>
@@ -208,15 +241,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                                 <button
                                                     key={notification.id}
                                                     onClick={() => {
-                                                        markAsRead(notification.id);
-                                                        if (notification.link) {
-                                                            // Sanitize old notification links that had trailing IDs by removing the ID part
-                                                            let linkStr = notification.link;
-                                                            if (linkStr.match(/\/(requests|tickets|support)\/[a-zA-Z0-9_-]+$/)) {
-                                                                linkStr = linkStr.replace(/\/[a-zA-Z0-9_-]+$/, '');
+                                                        if (notification.entityType && notification.entityId) {
+                                                            openNotification(notification.id);
+                                                        } else {
+                                                            markAsRead(notification.id);
+                                                            if (notification.link) {
+                                                                // Sanitize old notification links that had trailing IDs by removing the ID part
+                                                                let linkStr = notification.link;
+                                                                if (linkStr.match(/\/(requests|tickets|support)\/[a-zA-Z0-9_-]+$/)) {
+                                                                    linkStr = linkStr.replace(/\/[a-zA-Z0-9_-]+$/, '');
+                                                                }
+                                                                const redirectLink = linkStr.startsWith('/') ? linkStr : `/${linkStr}`;
+                                                                router.push(redirectLink);
                                                             }
-                                                            const redirectLink = linkStr.startsWith('/') ? linkStr : `/${linkStr}`;
-                                                            router.push(redirectLink);
                                                         }
                                                         setNotificationOpen(false);
                                                     }}
@@ -247,6 +284,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     {children}
                 </main>
             </div>
+            
+            <NotificationDetailWindow />
         </div>
     );
 }

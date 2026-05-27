@@ -42,10 +42,11 @@ class ApiClient {
             headers['Authorization'] = `Bearer ${token}`;
         }
 
+        const isFormData = body instanceof FormData;
         const config: RequestInit = {
             method,
             headers: {
-                'Content-Type': 'application/json',
+                ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
                 ...headers,
             },
             // Credentials ensure cookies (NextAuth session) are sent on same-origin requests
@@ -53,7 +54,7 @@ class ApiClient {
         };
 
         if (body) {
-            config.body = JSON.stringify(body);
+            config.body = isFormData ? body : JSON.stringify(body);
         }
 
         const response = await fetch(`${API_URL}${endpoint}`, config);
@@ -124,10 +125,24 @@ class ApiClient {
         });
     }
 
+    async createInventoryItemWithImage(formData: FormData) {
+        return this.request<{ item: any }>('/api/inventory', {
+            method: 'POST',
+            body: formData,
+        });
+    }
+
     async updateInventoryItem(id: string, data: any) {
         return this.request<{ item: any }>(`/api/inventory/${id}`, {
             method: 'PUT',
             body: data,
+        });
+    }
+
+    async updateInventoryItemWithImage(id: string, formData: FormData) {
+        return this.request<{ item: any }>(`/api/inventory/${id}`, {
+            method: 'PUT',
+            body: formData,
         });
     }
 
@@ -207,6 +222,10 @@ class ApiClient {
         });
     }
 
+    async getNotificationDetail(id: string) {
+        return this.request<{ notification: any; detail: any }>(`/api/notifications/${id}/detail`);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Admin
     // ─────────────────────────────────────────────────────────────────────────
@@ -227,6 +246,13 @@ class ApiClient {
         return this.request<{ request: any }>(`/api/admin/requests/${id}/status`, {
             method: 'PUT',
             body: data,
+        });
+    }
+
+    async returnRequestItems(id: string, items: { requestItemId: string; returnQuantity: number }[]) {
+        return this.request<{ message: string; status: string }>(`/api/admin/requests/${id}/return-items`, {
+            method: 'PUT',
+            body: { items },
         });
     }
 

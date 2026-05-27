@@ -81,4 +81,55 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
     }
 });
 
+// Get notification detail (with full entity data)
+router.get('/:id/detail', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const notification = await prisma.notification.findUnique({
+            where: {
+                id: req.params.id,
+                userId: req.user!.id,
+            },
+        });
+
+        if (!notification) {
+            return res.status(404).json({ error: 'Notification not found' });
+        }
+
+        let entityDetail = null;
+
+        if (notification.entityType === 'REQUEST' && notification.entityId) {
+            entityDetail = await prisma.itemRequest.findUnique({
+                where: { id: notification.entityId },
+                include: {
+                    items: {
+                        include: {
+                            inventoryItem: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    imageUrl: true,
+                                },
+                            },
+                        },
+                    },
+                    user: { select: { name: true, email: true, department: true } },
+                },
+            });
+        } else if (notification.entityType === 'TICKET' && notification.entityId) {
+            entityDetail = await prisma.supportTicket.findUnique({
+                where: { id: notification.entityId },
+                include: {
+                    user: { select: { name: true, email: true, department: true } },
+                },
+            });
+        }
+
+        res.json({ notification, detail: entityDetail });
+    } catch (error) {
+        console.error('Get notification detail error:', error);
+        res.status(500).json({ error: 'Failed to fetch notification detail' });
+    }
+});
+
 export default router;
+

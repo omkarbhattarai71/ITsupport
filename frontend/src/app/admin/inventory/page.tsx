@@ -41,6 +41,8 @@ export default function AdminInventoryPage() {
         quantity: 0,
         imageUrl: '',
     });
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
 
     useEffect(() => {
         fetchItems();
@@ -59,6 +61,7 @@ export default function AdminInventoryPage() {
     };
 
     const openModal = (item?: InventoryItem) => {
+        setImageFile(null);
         if (item) {
             setEditing(item);
             setFormData({
@@ -68,6 +71,7 @@ export default function AdminInventoryPage() {
                 quantity: item.quantity,
                 imageUrl: item.imageUrl || '',
             });
+            setImagePreview(item.imageUrl ? `${process.env.NEXT_PUBLIC_API_URL || ''}${item.imageUrl}` : null);
         } else {
             setEditing(null);
             setFormData({
@@ -77,6 +81,7 @@ export default function AdminInventoryPage() {
                 quantity: 0,
                 imageUrl: '',
             });
+            setImagePreview(null);
         }
         setShowModal(true);
     };
@@ -84,6 +89,16 @@ export default function AdminInventoryPage() {
     const closeModal = () => {
         setShowModal(false);
         setEditing(null);
+        setImageFile(null);
+        setImagePreview(null);
+    };
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -91,10 +106,22 @@ export default function AdminInventoryPage() {
         setSaving(true);
 
         try {
+            const form = new FormData();
+            form.append('name', formData.name);
+            form.append('description', formData.description);
+            form.append('category', formData.category);
+            form.append('quantity', formData.quantity.toString());
+            
+            if (imageFile) {
+                form.append('image', imageFile);
+            } else if (editing && !imagePreview) {
+                form.append('removeImage', 'true');
+            }
+
             if (editing) {
-                await api.updateInventoryItem(editing.id, formData);
+                await api.updateInventoryItemWithImage(editing.id, form);
             } else {
-                await api.createInventoryItem(formData);
+                await api.createInventoryItemWithImage(form);
             }
             fetchItems();
             closeModal();
@@ -190,9 +217,13 @@ export default function AdminInventoryPage() {
                                     <tr key={item.id}>
                                         <td>
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
-                                                    <Package className="w-5 h-5 text-slate-400" />
-                                                </div>
+                                                {item.imageUrl ? (
+                                                    <img src={`${process.env.NEXT_PUBLIC_API_URL || ''}${item.imageUrl}`} className="w-10 h-10 object-cover rounded-lg" alt={item.name} />
+                                                ) : (
+                                                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                                                        <Package className="w-5 h-5 text-slate-400" />
+                                                    </div>
+                                                )}
                                                 <div>
                                                     <p className="font-medium text-slate-900 dark:text-white">{item.name}</p>
                                                     <p className="text-xs text-slate-500 line-clamp-1">{item.description}</p>
@@ -288,6 +319,36 @@ export default function AdminInventoryPage() {
                                     placeholder="e.g. Docking Station"
                                     required
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Item Image (Max 10MB)
+                                </label>
+                                <div className="flex items-center gap-4">
+                                    {imagePreview ? (
+                                        <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200">
+                                            <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                                            <button 
+                                                type="button" 
+                                                className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl"
+                                                onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="w-16 h-16 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-700">
+                                            <Package className="w-6 h-6 text-slate-400" />
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg, image/png, image/webp, image/gif"
+                                        onChange={handleImageChange}
+                                        className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+                                    />
+                                </div>
                             </div>
 
                             <div>

@@ -189,8 +189,12 @@ export default function CatalogPage() {
                         const cartQty = getCartItemQuantity(item.id);
                         return (
                             <div key={item.id} className="card card-hover overflow-hidden">
-                                <div className="h-40 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
-                                    <Package className="w-16 h-16 text-slate-400" />
+                                <div className="h-40 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center overflow-hidden">
+                                    {item.imageUrl ? (
+                                        <img src={`${process.env.NEXT_PUBLIC_API_URL || ''}${item.imageUrl}`} alt={item.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <Package className="w-16 h-16 text-slate-400" />
+                                    )}
                                 </div>
                                 <div className="p-5">
                                     <div className="flex items-start justify-between gap-2 mb-2">

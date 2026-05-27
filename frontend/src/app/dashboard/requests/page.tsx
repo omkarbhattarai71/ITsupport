@@ -166,16 +166,31 @@ export default function RequestsPage() {
                                             <h4 className="font-medium text-slate-900 dark:text-white mb-3">Requested Items</h4>
                                             <div className="space-y-2">
                                                 {request.items?.map((item: any) => (
-                                                    <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 rounded-lg">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 bg-slate-100 dark:bg-slate-600 rounded-lg flex items-center justify-center">
-                                                                <Package className="w-5 h-5 text-slate-400" />
+                                                    <div key={item.id} className="flex flex-col p-3 bg-white dark:bg-slate-700 rounded-lg">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 bg-slate-100 dark:bg-slate-600 rounded-lg flex items-center justify-center overflow-hidden">
+                                                                    {item.inventoryItem?.imageUrl ? (
+                                                                        <img src={`${process.env.NEXT_PUBLIC_API_URL || ''}${item.inventoryItem.imageUrl}`} alt={item.inventoryItem.name} className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <Package className="w-5 h-5 text-slate-400" />
+                                                                    )}
+                                                                </div>
+                                                                <span className="font-medium text-slate-900 dark:text-white">
+                                                                    {item.inventoryItem?.name}
+                                                                </span>
                                                             </div>
-                                                            <span className="font-medium text-slate-900 dark:text-white">
-                                                                {item.inventoryItem?.name}
-                                                            </span>
+                                                            <div className="text-right">
+                                                                <span className="text-slate-500 block">Qty: {item.quantity}</span>
+                                                            </div>
                                                         </div>
-                                                        <span className="text-slate-500">Qty: {item.quantity}</span>
+                                                        {item.returnedQuantity > 0 && (
+                                                            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-600 flex justify-end">
+                                                                <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                                                                    Returned: {item.returnedQuantity} / {item.quantity}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>

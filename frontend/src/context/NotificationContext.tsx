@@ -12,15 +12,21 @@ interface Notification {
     read: boolean;
     link?: string;
     createdAt: string;
+    entityType?: string;
+    entityId?: string;
+    metadata?: string;
 }
 
 interface NotificationContextType {
     notifications: Notification[];
     unreadCount: number;
     loading: boolean;
+    activeNotificationId: string | null;
     refresh: () => Promise<void>;
     markAsRead: (id: string) => Promise<void>;
     markAllAsRead: () => Promise<void>;
+    openNotification: (id: string) => void;
+    closeNotification: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -30,6 +36,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
+
+    const [activeNotificationId, setActiveNotificationId] = useState<string | null>(null);
 
     const refresh = async () => {
         if (!user) return;
@@ -68,6 +76,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const openNotification = (id: string) => {
+        setActiveNotificationId(id);
+        markAsRead(id);
+    };
+
+    const closeNotification = () => {
+        setActiveNotificationId(null);
+    };
+
     useEffect(() => {
         if (user) {
             refresh();
@@ -83,9 +100,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 notifications,
                 unreadCount,
                 loading,
+                activeNotificationId,
                 refresh,
                 markAsRead,
                 markAllAsRead,
+                openNotification,
+                closeNotification,
             }}
         >
             {children}

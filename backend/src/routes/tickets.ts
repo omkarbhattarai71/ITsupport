@@ -30,9 +30,17 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             },
         });
 
-        // Create notification for admins
+        // Build rich metadata for notifications
+        const notifMetadata = JSON.stringify({
+            subject: data.subject,
+            description: data.description,
+            priority: data.priority || 'NORMAL',
+            userName: req.user!.name,
+        });
+
+        // Create notification for admins AND head admins
         const admins = await prisma.user.findMany({
-            where: { role: 'ADMIN' },
+            where: { role: { in: ['ADMIN', 'HEAD_ADMIN'] } },
         });
 
         for (const admin of admins) {
@@ -40,9 +48,12 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
                 data: {
                     userId: admin.id,
                     title: 'New Support Ticket',
-                    message: `${req.user!.name}: ${data.subject}`,
+                    message: `${req.user!.name}: ${data.subject} [${(data.priority || 'NORMAL')}]`,
                     type: 'REQUEST_RECEIVED',
                     link: '/admin/tickets',
+                    entityType: 'TICKET',
+                    entityId: ticket.id,
+                    metadata: notifMetadata,
                 },
             });
         }

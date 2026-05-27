@@ -26,15 +26,16 @@ export default function AdminRequestsPage() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [processing, setProcessing] = useState<string | null>(null);
     const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+    const [returnQuantities, setReturnQuantities] = useState<Record<string, number>>({});
 
     useEffect(() => {
         fetchRequests();
-    }, [filter, search]);
+    }, [search]);
 
     const fetchRequests = async () => {
         setLoading(true);
         try {
-            const data = await api.getAdminRequests({ status: filter, search });
+            const data = await api.getAdminRequests({ status: 'all', search });
             setRequests(data.requests);
         } catch (error) {
             console.error('Failed to fetch requests:', error);
@@ -51,6 +52,52 @@ export default function AdminRequestsPage() {
             setExpandedId(null);
         } catch (error) {
             console.error('Failed to update status:', error);
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    const toggleExpand = (id: string) => {
+        if (expandedId === id) {
+            setExpandedId(null);
+        } else {
+            setExpandedId(id);
+            const req = requests.find(r => r.id === id);
+            if (req && req.status === 'COLLECTED') {
+                const initial: Record<string, number> = {};
+                req.items.forEach((i: any) => {
+                    initial[i.id] = 0;
+                });
+                setReturnQuantities(initial);
+            }
+        }
+    };
+
+    const handleReturn = async (requestId: string) => {
+        try {
+            setProcessing(requestId);
+            const itemsToReturn = Object.entries(returnQuantities)
+                .filter(([_, qty]) => qty > 0)
+                .map(([requestItemId, returnQuantity]) => ({ requestItemId, returnQuantity }));
+                
+            if (itemsToReturn.length === 0) return;
+            
+            await api.returnRequestItems(requestId, itemsToReturn);
+            
+            // Reset quantities to 0
+            const updatedReq = await api.getRequest(requestId);
+            if (updatedReq.request.status === 'COLLECTED') {
+                const initial: Record<string, number> = {};
+                updatedReq.request.items.forEach((i: any) => {
+                    initial[i.id] = 0;
+                });
+                setReturnQuantities(initial);
+            } else {
+                setExpandedId(null);
+            }
+            fetchRequests();
+        } catch (error) {
+            console.error('Failed to process return:', error);
         } finally {
             setProcessing(null);
         }
@@ -78,6 +125,8 @@ export default function AdminRequestsPage() {
         return badges[priority] || '';
     };
 
+    const filteredRequests = filter === 'all' ? requests : requests.filter(r => r.status === filter);
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Header */}
@@ -101,18 +150,29 @@ export default function AdminRequestsPage() {
                     />
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                    {['PENDING', 'APPROVED', 'READY', 'COLLECTED', 'DECLINED', 'all'].map((status) => (
-                        <button
-                            key={status}
-                            onClick={() => setFilter(status)}
-                            className={clsx(
-                                'btn',
-                                filter === status ? 'btn-primary' : 'btn-secondary'
-                            )}
-                        >
-                            {status === 'all' ? 'All' : status}
-                        </button>
-                    ))}
+                    {['PENDING', 'APPROVED', 'READY', 'COLLECTED', 'DECLINED', 'all'].map((status) => {
+                        const count = status === 'all' ? requests.length : requests.filter(r => r.status === status).length;
+                        return (
+                            <button
+                                key={status}
+                                onClick={() => setFilter(status)}
+                                className={clsx(
+                                    'btn',
+                                    filter === status ? 'btn-primary' : 'btn-secondary'
+                                )}
+                            >
+                                {status === 'all' ? 'All' : status}
+                                <span className={clsx(
+                                    'ml-2 py-0.5 px-2 rounded-full text-xs font-bold shadow-sm',
+                                    filter === status 
+                                        ? 'bg-amber-400 text-amber-900' 
+                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                                )}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -123,7 +183,7 @@ export default function AdminRequestsPage() {
                         <div key={i} className="skeleton h-28 rounded-2xl" />
                     ))}
                 </div>
-            ) : requests.length === 0 ? (
+            ) : filteredRequests.length === 0 ? (
                 <div className="text-center py-12 card">
                     <ClipboardList className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-slate-900 dark:text-white">No requests found</h3>
@@ -133,10 +193,10 @@ export default function AdminRequestsPage() {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {requests.map((request) => (
+                    {filteredRequests.map((request) => (
                         <div key={request.id} className="card overflow-hidden">
                             <button
-                                onClick={() => setExpandedId(expandedId === request.id ? null : request.id)}
+                                onClick={() => toggleExpand(request.id)}
                                 className="w-full p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                             >
                                 <div className="flex items-center gap-4 text-left">
@@ -181,19 +241,37 @@ export default function AdminRequestsPage() {
                                             <h4 className="font-medium text-slate-900 dark:text-white mb-3">Requested Items</h4>
                                             <div className="space-y-2">
                                                 {request.items?.map((item: any) => (
-                                                    <div key={item.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 rounded-lg">
-                                                        <div className="flex items-center gap-3">
-                                                            <Package className="w-5 h-5 text-slate-400" />
-                                                            <div>
-                                                                <span className="font-medium text-slate-900 dark:text-white">
-                                                                    {item.inventoryItem?.name}
-                                                                </span>
-                                                                <span className="text-xs text-slate-500 ml-2">
-                                                                    (Stock: {item.inventoryItem?.quantity})
-                                                                </span>
+                                                    <div key={item.id} className="flex flex-col p-3 bg-white dark:bg-slate-700 rounded-lg">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <Package className="w-5 h-5 text-slate-400" />
+                                                                <div>
+                                                                    <span className="font-medium text-slate-900 dark:text-white">
+                                                                        {item.inventoryItem?.name}
+                                                                    </span>
+                                                                    <span className="text-xs text-slate-500 ml-2">
+                                                                        (Stock: {item.inventoryItem?.quantity})
+                                                                    </span>
+                                                                </div>
                                                             </div>
+                                                            <span className="text-slate-500">Qty: {item.quantity}</span>
                                                         </div>
-                                                        <span className="text-slate-500">Qty: {item.quantity}</span>
+                                                        {request.status === 'COLLECTED' && item.returnedQuantity < item.quantity && (
+                                                            <div className="mt-3 flex items-center justify-between border-t border-slate-200 dark:border-slate-600 pt-3">
+                                                                <span className="text-sm text-slate-600 dark:text-slate-400">Return (Returned: {item.returnedQuantity}):</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max={item.quantity - item.returnedQuantity}
+                                                                    className="input w-20 h-8 !text-sm"
+                                                                    value={returnQuantities[item.id] !== undefined ? returnQuantities[item.id] : 0}
+                                                                    onChange={(e) => setReturnQuantities({ ...returnQuantities, [item.id]: parseInt(e.target.value) || 0 })}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {item.returnedQuantity > 0 && item.returnedQuantity === item.quantity && (
+                                                            <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium border-t border-slate-200 dark:border-slate-600 pt-2">Fully Returned</div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
@@ -281,10 +359,10 @@ export default function AdminRequestsPage() {
                                                     </button>
                                                 )}
 
-                                                {request.status === 'COLLECTED' && (
+                                                {request.status === 'COLLECTED' && request.items.some((i: any) => i.returnedQuantity < i.quantity) && (
                                                     <button
-                                                        onClick={() => updateStatus(request.id, 'RETURNED')}
-                                                        disabled={processing === request.id}
+                                                        onClick={() => handleReturn(request.id)}
+                                                        disabled={processing === request.id || Object.values(returnQuantities).every(v => !v || v === 0)}
                                                         className="btn btn-secondary"
                                                     >
                                                         {processing === request.id ? (
@@ -292,7 +370,7 @@ export default function AdminRequestsPage() {
                                                         ) : (
                                                             <Package className="w-4 h-4" />
                                                         )}
-                                                        Mark as Returned
+                                                        Process Partial Return
                                                     </button>
                                                 )}
                                             </div>

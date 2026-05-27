@@ -12,7 +12,7 @@ const ContentSecurityPolicy = `
   script-src 'self' 'unsafe-eval' 'unsafe-inline' https://login.microsoftonline.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com;
-  img-src 'self' data: blob: https:;
+  img-src 'self' data: blob: https: ${IS_PROD ? '' : 'http://localhost:3001'};
   connect-src 'self' https://login.microsoftonline.com https://graph.microsoft.com ${
     IS_PROD ? '' : 'http://localhost:3001'
   };

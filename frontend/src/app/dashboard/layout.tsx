@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
+import NotificationDetailWindow from '@/components/NotificationDetailWindow';
 import { useState } from 'react';
 import {
     Monitor,
@@ -31,7 +32,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
     const pathname = usePathname();
     const router = useRouter();
     const { user, logout, loading, isAdmin } = useAuth();
-    const { unreadCount, notifications, markAsRead } = useNotifications();
+    const { unreadCount, notifications, markAsRead, openNotification } = useNotifications();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [notificationOpen, setNotificationOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
@@ -129,15 +130,19 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                                                     <button
                                                         key={notification.id}
                                                         onClick={() => {
-                                                            markAsRead(notification.id);
-                                                            if (notification.link) {
-                                                                // Sanitize old links to avoid 404s
-                                                                let linkStr = notification.link;
-                                                                if (linkStr.match(/\/(requests|tickets|support)\/[a-zA-Z0-9_-]+$/)) {
-                                                                    linkStr = linkStr.replace(/\/[a-zA-Z0-9_-]+$/, '');
+                                                            if (notification.entityType && notification.entityId) {
+                                                                openNotification(notification.id);
+                                                            } else {
+                                                                markAsRead(notification.id);
+                                                                if (notification.link) {
+                                                                    // Sanitize old links to avoid 404s
+                                                                    let linkStr = notification.link;
+                                                                    if (linkStr.match(/\/(requests|tickets|support)\/[a-zA-Z0-9_-]+$/)) {
+                                                                        linkStr = linkStr.replace(/\/[a-zA-Z0-9_-]+$/, '');
+                                                                    }
+                                                                    const redirectLink = linkStr.startsWith('/') ? linkStr : `/${linkStr}`;
+                                                                    router.push(redirectLink);
                                                                 }
-                                                                const redirectLink = linkStr.startsWith('/') ? linkStr : `/${linkStr}`;
-                                                                router.push(redirectLink);
                                                             }
                                                             setNotificationOpen(false);
                                                         }}
@@ -251,6 +256,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                     {children}
                 </div>
             </main>
+            
+            <NotificationDetailWindow />
         </div>
     );
 }

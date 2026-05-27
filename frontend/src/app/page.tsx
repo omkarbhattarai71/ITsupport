@@ -32,7 +32,7 @@ export default function HomePage() {
 
                         <div className="flex items-center gap-4">
                             {loading ? (
-                                <div className="w-24 h-10 skeleton rounded-lg" />
+                                <div className="w-48 h-10 skeleton rounded-lg" />
                             ) : user ? (
                                 <Link
                                     href={isAdmin ? '/admin/dashboard' : '/dashboard'}
@@ -84,13 +84,25 @@ export default function HomePage() {
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                            <button
-                                onClick={() => signIn('azure-ad', { callbackUrl: '/dashboard' })}
-                                className="btn btn-primary text-lg px-8 py-4"
-                            >
-                                Sign in with Microsoft
-                                <ArrowRight className="w-5 h-5" />
-                            </button>
+                            {loading ? (
+                                <div className="w-64 h-16 skeleton rounded-xl opacity-20" />
+                            ) : user ? (
+                                <Link
+                                    href={isAdmin ? '/admin/dashboard' : '/dashboard'}
+                                    className="btn btn-primary text-lg px-8 py-4"
+                                >
+                                    Go to Dashboard
+                                    <ArrowRight className="w-5 h-5" />
+                                </Link>
+                            ) : (
+                                <button
+                                    onClick={() => signIn('azure-ad', { callbackUrl: '/dashboard' })}
+                                    className="btn btn-primary text-lg px-8 py-4"
+                                >
+                                    Sign in with Microsoft
+                                    <ArrowRight className="w-5 h-5" />
+                                </button>
+                            )}
                             <Link href="/catalog" className="btn btn-outline border-white text-white hover:bg-white/10 text-lg px-8 py-4">
                                 Browse Catalog
                             </Link>
@@ -199,12 +211,23 @@ export default function HomePage() {
                         Join your colleagues and start managing your IT equipment requests today.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button
-                            onClick={() => signIn('azure-ad', { callbackUrl: '/dashboard' })}
-                            className="btn bg-white text-primary-700 hover:bg-slate-100 text-lg px-8 py-4"
-                        >
-                            Sign in with Microsoft
-                        </button>
+                        {loading ? (
+                            <div className="w-64 h-16 skeleton rounded-xl opacity-20" />
+                        ) : user ? (
+                            <Link
+                                href={isAdmin ? '/admin/dashboard' : '/dashboard'}
+                                className="btn bg-white text-primary-700 hover:bg-slate-100 text-lg px-8 py-4"
+                            >
+                                Go to Dashboard
+                            </Link>
+                        ) : (
+                            <button
+                                onClick={() => signIn('azure-ad', { callbackUrl: '/dashboard' })}
+                                className="btn bg-white text-primary-700 hover:bg-slate-100 text-lg px-8 py-4"
+                            >
+                                Sign in with Microsoft
+                            </button>
+                        )}
                         <Link href="https://fcn.dk/" target="_blank" className="btn border-2 border-white text-white hover:bg-white/10 text-lg px-8 py-4">
                             Learn More
                         </Link>
